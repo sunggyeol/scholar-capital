@@ -1,36 +1,168 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scholar Capital
+
+Transform any Google Scholar profile into an interactive network visualization by simply replacing "scholar.google.com" with "scholar.capital" in the URL.
+
+## Features
+
+- 🔍 **Search Profiles**: Search for any researcher by name, just like Google Scholar
+- 📊 **Instant Visualization**: Convert profiles to interactive network graphs
+- 🎯 **Progressive Disclosure**: Start with top 10 papers, expand to see more
+- 🔗 **Network Exploration**: Click nodes to explore co-authors and citations
+- 📈 **Citation Analysis**: View citation counts and publication metrics
+- 🔄 **URL Replacement**: Replace "scholar.google.com" with "scholar.capital" in any URL
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
+
+This project uses `pnpm` as the package manager:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure API Key
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy the example environment file and add your SearchAPI key:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env.local
+```
 
-## Learn More
+Edit `.env.local` and add your API key:
+```
+SEARCHAPI_API_KEY=your_api_key_here
+```
 
-To learn more about Next.js, take a look at the following resources:
+Get your API key from [SearchAPI](https://www.searchapi.io/).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Run the Development Server
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm dev
+```
 
-## Deploy on Vercel
+The app will be available at [http://localhost:3000](http://localhost:3000)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. (Optional) Test Domain Replacement Locally
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To test the `scholar.google.com` → `scholar.capital` URL replacement locally:
+
+**Edit your hosts file:**
+
+Linux/Mac:
+```bash
+sudo nano /etc/hosts
+```
+
+Windows: Edit `C:\Windows\System32\drivers\etc\hosts` as Administrator
+
+**Add this line:**
+```
+127.0.0.1    scholar.capital
+```
+
+**Then visit:**
+```
+http://scholar.capital:3000
+```
+
+See [LOCAL_TESTING.md](./LOCAL_TESTING.md) for detailed instructions.
+
+## Usage
+
+### Method 1: URL Replacement (Recommended)
+
+This is the primary feature of Scholar Capital!
+
+Replace `scholar.google.com` with `scholar.capital` in any Google Scholar profile URL:
+
+```bash
+# Original
+https://scholar.google.com/citations?user=Yua2oBoAAAAJ&hl=en
+
+# New
+https://scholar.capital/citations?user=Yua2oBoAAAAJ&hl=en
+```
+
+### Method 2: Search for Researchers (Limited)
+
+1. Visit the homepage
+2. Search by common first names only (e.g., "Mike", "John", "David")
+3. Click on a profile from the search results
+4. Explore the interactive network visualization
+
+**Note:** Profile search has very limited data coverage. For best results, use the URL replacement method above.
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run development server
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+
+# Lint code
+pnpm lint
+```
+
+## Project Structure
+
+```
+scholarcapital/
+├── app/
+│   ├── api/scholar/        # API routes for Google Scholar data
+│   ├── citations/          # Visualization page
+│   └── page.tsx            # Homepage with search
+├── components/
+│   ├── graph/              # Graph visualization components
+│   ├── search/             # Search result components
+│   └── ui/                 # UI components (loading, error)
+├── lib/
+│   ├── types/              # TypeScript type definitions
+│   ├── utils/              # Utility functions
+│   └── searchapi.ts        # API client for SearchAPI
+└── public/                 # Static assets
+```
+
+## Documentation
+
+- [API Documentation](./API_DOCUMENTATION.md) - API routes and endpoints
+- [Local Testing Guide](./LOCAL_TESTING.md) - Testing domain replacement locally
+- [Usage Guide](./USAGE_GUIDE.md) - How to use the visualization
+
+## Tech Stack
+
+- **Framework**: Next.js 16 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Visualization**: react-force-graph-2d
+- **Data Source**: Google Scholar (via SearchAPI)
+
+## Deployment
+
+Deploy to Vercel, Netlify, or any platform that supports Next.js:
+
+```bash
+# Build the app
+pnpm build
+
+# The app is ready to deploy
+```
+
+For the URL replacement feature to work in production, deploy to the `scholar.capital` domain.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT
