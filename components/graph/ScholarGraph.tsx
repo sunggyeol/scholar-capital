@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { GraphData, GraphNode, GraphLink } from '@/lib/types/graph';
-import { 
-  LightBulbIcon, 
-  CursorArrowRaysIcon, 
+import { useEffect, useRef, useState, useCallback } from 'react';
+// @ts-ignore - react-cytoscapejs doesn't have types
+import CytoscapeComponent from 'react-cytoscapejs';
+import Cytoscape from 'cytoscape';
+import { GraphData, GraphNode } from '@/lib/types/graph';
+import {
+  LightBulbIcon,
+  CursorArrowRaysIcon,
   MagnifyingGlassIcon,
   CalendarIcon,
   ChartBarIcon,
@@ -14,285 +16,320 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/solid';
 
-// Dynamically import ForceGraph2D to avoid SSR issues
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
-  ssr: false,
-}) as any;
-
 interface ScholarGraphProps {
   data: GraphData;
   onNodeClick?: (node: GraphNode) => void;
-  onNodeHover?: (node: GraphNode | null) => void;
   width?: number;
   height?: number;
 }
 
-export function ScholarGraph({ 
-  data, 
-  onNodeClick, 
-  onNodeHover,
+export function ScholarGraph({
+  data,
+  onNodeClick,
   width,
-  height 
+  height
 }: ScholarGraphProps) {
-  const graphRef = useRef<any>(null);
-  const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
+  const cyRef = useRef<Cytoscape.Core | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [cytoscapeElements, setCytoscapeElements] = useState<any[]>([]);
 
   // Update dimensions on mount and resize
   useEffect(() => {
     const updateDimensions = () => {
       if (!width || !height) {
-        setDimensions({
-          width: window.innerWidth - 100,
-          height: window.innerHeight - 200,
-        });
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          setDimensions({
+            width: rect.width,
+            height: rect.height,
+          });
+        } else {
+          setDimensions({
+            width: window.innerWidth,
+            height: window.innerHeight,
+          });
+        }
       }
     };
 
-    updateDimensions();
+    const initialTimer = setTimeout(updateDimensions, 0);
     window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(initialTimer);
+      window.removeEventListener('resize', updateDimensions);
+      resizeObserver.disconnect();
+    };
   }, [width, height]);
 
-  const handleNodeClick = useCallback((node: any) => {
-    const graphNode = node as GraphNode;
-    setSelectedNode(graphNode);
-    if (onNodeClick) {
-      onNodeClick(graphNode);
+  // Convert GraphData to Cytoscape format
+  useEffect(() => {
+    if (!data?.nodes || data.nodes.length === 0) {
+      setCytoscapeElements([]);
+      return;
     }
-  }, [onNodeClick]);
 
-  const handleNodeDrag = useCallback((node: any) => {
-    // Fix node position while dragging
-    node.fx = node.x;
-    node.fy = node.y;
-  }, []);
+    const elements: any[] = [];
 
-  const handleNodeDragEnd = useCallback((node: any) => {
-    // Keep node fixed at its position after drag
-    node.fx = node.x;
-    node.fy = node.y;
-  }, []);
-  
-  // Get connected authors for a paper node
-  const getConnectedAuthors = useCallback((paperNode: GraphNode): GraphNode[] => {
-    if (paperNode.type !== 'paper') return [];
-    
-    const authorIds = (data.links as any[])
-      .filter((link: any) => {
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        return (targetId === paperNode.id || sourceId === paperNode.id) && 
-               (link.type === 'authored' || link.type === 'coauthored');
-      })
-      .map((link: any) => {
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        return targetId === paperNode.id ? sourceId : targetId;
+    // Add nodes
+    data.nodes.forEach((node) => {
+      const nodeSize = node.type === 'researcher' ? 40 :
+                      node.type === 'paper' ?
+                        Math.max(20, Math.min(50, 20 + Math.log10((node.metadata?.citationCount || 0) + 1) * 8)) :
+                        25;
+
+      const element: any = {
+        group: 'nodes',
+        data: {
+          id: node.id,
+          label: node.name,
+          type: node.type,
+          nodeData: node,
+          size: nodeSize
+        }
+      };
+
+      // Set position if available from metadata
+      if (node.metadata?.initialAngle !== undefined) {
+        const distance = node.metadata.layoutDistance || 300;
+        element.position = {
+          x: Math.cos(node.metadata.initialAngle) * distance,
+          y: Math.sin(node.metadata.initialAngle) * distance
+        };
+      } else if (node.type === 'researcher') {
+        element.position = { x: 0, y: 0 };
+      }
+
+      elements.push(element);
+    });
+
+    // Add edges
+    data.links.forEach((link) => {
+      elements.push({
+        group: 'edges',
+        data: {
+          id: `${link.source}-${link.target}`,
+          source: link.source,
+          target: link.target,
+          type: link.type
+        }
       });
-    
-    return data.nodes.filter(node => authorIds.includes(node.id));
+    });
+
+    setCytoscapeElements(elements);
   }, [data]);
 
-  const handleNodeHover = useCallback((node: any) => {
-    const graphNode = node as GraphNode | null;
-    setHoveredNode(graphNode);
-    if (onNodeHover) {
-      onNodeHover(graphNode);
-    }
-  }, [onNodeHover]);
+  // Handle Cytoscape initialization
+  const handleCyInit = useCallback((cy: Cytoscape.Core) => {
+    cyRef.current = cy;
 
-  const paintNode = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const graphNode = node as GraphNode;
-    const label = graphNode.name;
-    const fontSize = 12 / globalScale;
-    
-    // Calculate node size based on citation count for papers
-    let nodeSize = 5;
-    if (graphNode.type === 'paper' && graphNode.metadata?.citationCount) {
-      const citations = graphNode.metadata.citationCount;
-      // Logarithmic scale for better visual distribution
-      nodeSize = Math.max(5, Math.min(20, 5 + Math.log10(citations + 1) * 4));
-    } else if (graphNode.type === 'researcher') {
-      nodeSize = 12;
-    } else {
-      nodeSize = 6;
-    }
-    
-    const isSelected = selectedNode?.id === graphNode.id;
-    const isHovered = hoveredNode?.id === graphNode.id;
-    
-    // Blue/Mint color palette
-    let nodeColor = '#8da9c4'; // Powder blue
-    let borderColor = '#13315c';
-    
-    if (graphNode.type === 'researcher') {
-      nodeColor = '#134074'; // Yale blue
-      borderColor = '#0b2545';
-    } else if (graphNode.type === 'paper') {
-      nodeColor = '#13315c'; // Berkeley blue
-      borderColor = '#0b2545';
-    } else if (graphNode.type === 'coauthor') {
-      nodeColor = '#8da9c4'; // Powder blue
-      borderColor = '#134074';
-    }
-    
-    // Draw glow for selected/hovered
-    if (isSelected || isHovered) {
-      ctx.shadowColor = nodeColor;
-      ctx.shadowBlur = 30;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, nodeSize + 4, 0, 2 * Math.PI);
-      ctx.fillStyle = nodeColor;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    
-    // Draw node circle
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI);
-    ctx.fillStyle = nodeColor;
-    ctx.fill();
-    
-    // Draw border
-    ctx.strokeStyle = isSelected ? '#ffffff' : borderColor;
-    ctx.lineWidth = (isSelected ? 4 : 2.5) / globalScale;
-    ctx.stroke();
-    
-    // Draw label with background (only for researcher node)
-    if (graphNode.type === 'researcher') {
-      ctx.font = `${fontSize}px Sans-Serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      const maxLength = 35;
-      const truncatedLabel = label.length > maxLength 
-        ? label.substring(0, maxLength) + '...' 
-        : label;
-      
-      const textWidth = ctx.measureText(truncatedLabel).width;
-      const padding = 6 / globalScale;
-      
-      // Draw text background
-      ctx.fillStyle = 'rgba(238, 244, 237, 0.95)'; // Mint cream
-      ctx.strokeStyle = '#8da9c4'; // Powder blue
-      ctx.lineWidth = 1 / globalScale;
-      ctx.fillRect(
-        node.x - textWidth / 2 - padding,
-        node.y + nodeSize + 8 / globalScale - padding,
-        textWidth + padding * 2,
-        fontSize + padding * 2
-      );
-      ctx.strokeRect(
-        node.x - textWidth / 2 - padding,
-        node.y + nodeSize + 8 / globalScale - padding,
-        textWidth + padding * 2,
-        fontSize + padding * 2
-      );
-      
-      // Draw text
-      ctx.fillStyle = '#0b2545'; // Oxford blue
-      ctx.fillText(truncatedLabel, node.x, node.y + nodeSize + fontSize + 2);
-    }
-  }, [hoveredNode, selectedNode]);
+    // Run layout for nodes without positions
+    const nodesWithoutPosition = cy.nodes().filter(node =>
+      node.position().x === undefined || node.position().y === undefined
+    );
 
-  const paintLink = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const start = link.source;
-    const end = link.target;
-    
-    // Calculate line width based on link type
-    const lineWidth = link.type === 'authored' ? 2 : 1;
-    
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    
-    // Different colors for different link types
-    switch (link.type) {
-      case 'authored':
-        ctx.strokeStyle = 'rgba(19, 64, 116, 0.5)'; // Yale blue
-        break;
-      case 'coauthored':
-        ctx.strokeStyle = 'rgba(141, 169, 196, 0.6)'; // Powder blue
-        break;
-      case 'cited':
-        ctx.strokeStyle = 'rgba(19, 49, 92, 0.3)'; // Berkeley blue
-        break;
-      default:
-        ctx.strokeStyle = 'rgba(141, 169, 196, 0.3)';
+    if (nodesWithoutPosition.length > 0) {
+      cy.layout({
+        name: 'circle',
+        fit: false,
+        avoidOverlap: true,
+        radius: 300
+      }).run();
     }
-    
-    ctx.lineWidth = lineWidth / globalScale;
-    ctx.stroke();
-  }, []);
 
-  const connectedAuthors = selectedNode?.type === 'paper' ? getConnectedAuthors(selectedNode) : [];
+    // Fit to viewport
+    cy.fit(undefined, 50);
+
+    // Enable tooltips
+    let tooltipDiv: HTMLDivElement | null = null;
+
+    cy.on('mouseover', 'node', (event) => {
+      const node = event.target;
+      const nodeData = node.data('nodeData') as GraphNode;
+
+      // Only show tooltip for paper nodes
+      if (nodeData.type !== 'paper') return;
+
+      // Create tooltip element
+      tooltipDiv = document.createElement('div');
+      tooltipDiv.className = 'cytoscape-tooltip';
+      tooltipDiv.style.cssText = `
+        position: absolute;
+        background: #eef4ed;
+        color: #0b2545;
+        padding: 12px 14px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(19, 64, 116, 0.15);
+        border: 1.5px solid #8da9c4;
+        max-width: 280px;
+        font-size: 13px;
+        pointer-events: none;
+        z-index: 9999;
+        line-height: 1.4;
+        backdrop-filter: blur(8px);
+        background: rgba(238, 244, 237, 0.98);
+      `;
+
+      tooltipDiv.innerHTML = `
+        <strong style="color: #134074;">${nodeData.name}</strong><br/>
+        ${nodeData.metadata?.citationCount !== undefined ?
+          `<span style="color: #134074;">Citations: ${nodeData.metadata.citationCount}</span><br/>` : ''}
+        ${nodeData.metadata?.year ? `<span style="color: #0b2545;">Year: ${nodeData.metadata.year}</span>` : ''}
+      `;
+
+      document.body.appendChild(tooltipDiv);
+
+      // Position tooltip near cursor
+      const updateTooltipPosition = (e: MouseEvent) => {
+        if (tooltipDiv) {
+          tooltipDiv.style.left = `${e.clientX + 10}px`;
+          tooltipDiv.style.top = `${e.clientY + 10}px`;
+        }
+      };
+
+      const mouseMoveHandler = (e: MouseEvent) => updateTooltipPosition(e);
+      document.addEventListener('mousemove', mouseMoveHandler);
+
+      // Store handler for cleanup
+      (tooltipDiv as any)._mouseMoveHandler = mouseMoveHandler;
+    });
+
+    cy.on('mouseout', 'node', () => {
+      if (tooltipDiv) {
+        const handler = (tooltipDiv as any)._mouseMoveHandler;
+        if (handler) {
+          document.removeEventListener('mousemove', handler);
+        }
+        tooltipDiv.remove();
+        tooltipDiv = null;
+      }
+    });
+
+    // Node click handler
+    cy.on('tap', 'node', (event) => {
+      const node = event.target;
+      const nodeData = node.data('nodeData') as GraphNode;
+      setSelectedNode(nodeData);
+      if (onNodeClick) {
+        onNodeClick(nodeData);
+      }
+    });
+
+    // Background click to deselect
+    cy.on('tap', (event) => {
+      if (event.target === cy) {
+        setSelectedNode(null);
+      }
+    });
+  }, [onNodeClick]);
+
+  const graphWidth = width || dimensions.width;
+  const graphHeight = height || dimensions.height;
+
+  const stylesheet: Cytoscape.StylesheetStyle[] = [
+    {
+      selector: 'node',
+      style: {
+        'background-color': (ele: any) => {
+          const type = ele.data('type');
+          if (type === 'researcher') return '#134074';
+          if (type === 'paper') return '#13315c';
+          return '#8da9c4';
+        },
+        'width': (ele: any) => ele.data('size'),
+        'height': (ele: any) => ele.data('size'),
+        'label': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'researcher' ? ele.data('label') : '';
+        },
+        'color': '#0b2545',
+        'text-valign': 'bottom',
+        'text-halign': 'center',
+        'text-margin-y': 5,
+        'font-size': '12px',
+        'font-weight': 'bold',
+        'text-wrap': 'wrap',
+        'text-max-width': '120px',
+        'border-width': 3,
+        'border-color': '#0b2545',
+        'text-background-color': '#eef4ed',
+        'text-background-opacity': 0.9,
+        'text-background-padding': '4px',
+        'text-background-shape': 'roundrectangle'
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-width': 5,
+        'border-color': '#ffffff',
+        'overlay-opacity': 0.2,
+        'overlay-color': '#134074',
+        'overlay-padding': 8
+      }
+    },
+    {
+      selector: 'node:active',
+      style: {
+        'overlay-opacity': 0.3,
+        'overlay-color': '#134074'
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'authored' ? 3 : 2;
+        },
+        'line-color': (ele: any) => {
+          const type = ele.data('type');
+          if (type === 'authored') return 'rgba(19, 64, 116, 0.6)';
+          if (type === 'coauthored') return 'rgba(141, 169, 196, 0.7)';
+          return 'rgba(19, 49, 92, 0.4)';
+        },
+        'curve-style': 'straight',
+        'target-arrow-shape': 'none'
+      }
+    }
+  ];
+
+  if (!cytoscapeElements || cytoscapeElements.length === 0) {
+    return (
+      <div ref={containerRef} className="relative w-full h-full flex items-center justify-center bg-[#eef4ed]">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-[#0b2545] mb-2">Loading Graph</div>
+          <div className="text-sm text-[#13315c]">
+            {data?.nodes?.length ? `Initializing ${data.nodes.length} nodes...` : 'Waiting for data...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative w-full h-full flex">
+    <div ref={containerRef} className="relative w-full h-full flex overflow-hidden">
       {/* Graph Canvas */}
-      <div className={`flex-1 transition-all ${selectedNode ? 'mr-96' : ''}`}>
-        <ForceGraph2D
-          ref={graphRef}
-          graphData={data}
-          width={selectedNode ? (width || dimensions.width) - 384 : (width || dimensions.width)}
-          height={height || dimensions.height}
-          nodeLabel={(node: any) => {
-            const graphNode = node as GraphNode;
-            return `<div style="background: #eef4ed; color: #0b2545; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(19, 64, 116, 0.2); border: 1px solid #8da9c4; max-width: 250px;">
-              <strong style="color: #134074;">${graphNode.name}</strong><br/>
-              <span style="color: #13315c;">Type: ${graphNode.type}</span><br/>
-              ${graphNode.metadata?.citationCount ? `<span style="color: #134074;">Citations: ${graphNode.metadata.citationCount}</span><br/>` : ''}
-              ${graphNode.metadata?.year ? `<span style="color: #0b2545;">Year: ${graphNode.metadata.year}</span>` : ''}
-            </div>`;
-          }}
-          nodeCanvasObject={paintNode}
-          linkCanvasObject={paintLink}
-          onNodeClick={handleNodeClick}
-          onNodeHover={handleNodeHover}
-          onNodeDrag={handleNodeDrag}
-          onNodeDragEnd={handleNodeDragEnd}
-          cooldownTicks={200}
-          d3AlphaDecay={0.015}
-          d3VelocityDecay={0.15}
-          d3ForceConfig={{
-            charge: { strength: -3000, distanceMax: 1500 }
-          }}
-          linkDistance={(link: any) => {
-            const source = link.source;
-            const target = link.target;
-            
-            const targetDistance = typeof target === 'object' && target?.metadata?.layoutDistance
-              ? target.metadata.layoutDistance
-              : undefined;
-            const sourceDistance = typeof source === 'object' && source?.metadata?.layoutDistance
-              ? source.metadata.layoutDistance
-              : undefined;
-            
-            if (targetDistance || sourceDistance) {
-              return targetDistance || sourceDistance;
-            }
-            
-            const targetId = typeof target === 'string' ? target : target.id || '';
-            
-            // Fallback deterministic distance based on target ID if metadata is missing
-            let hash = 2166136261;
-            for (let i = 0; i < targetId.length; i++) {
-              hash ^= targetId.charCodeAt(i);
-              hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-            }
-            hash = Math.abs(hash);
-            const randomValue = (hash % 1000) / 999;
-            return 400 + (randomValue * 1000);
-          }}
-          enableNodeDrag={true}
-          enableZoomInteraction={true}
-          enablePanInteraction={true}
+      <div className="flex-1 bg-[#eef4ed] overflow-hidden">
+        <CytoscapeComponent
+          elements={cytoscapeElements}
+          style={{ width: `${graphWidth}px`, height: `${graphHeight}px` }}
+          stylesheet={stylesheet}
+          cy={handleCyInit}
+          wheelSensitivity={0.2}
+          minZoom={0.3}
+          maxZoom={3}
         />
-        
+
         {/* Legend */}
-        <div className="absolute top-4 left-4 bg-[#eef4ed]/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border-2 border-[#8da9c4]">
+        <div className="absolute top-4 left-4 bg-[#eef4ed]/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border-2 border-[#8da9c4] z-10">
           <h3 className="font-bold mb-3 text-sm text-[#0b2545]">Legend</h3>
           <div className="space-y-2 text-xs text-[#13315c]">
             <div className="flex items-center gap-2">
@@ -318,11 +355,11 @@ export function ScholarGraph({
 
       {/* Sidebar */}
       {selectedNode && (
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto">
+        <div className="absolute right-0 top-0 bottom-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-20 scrollbar-hide">
           {/* Close button */}
           <button
             onClick={() => setSelectedNode(null)}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#8da9c4] hover:bg-[#134074] flex items-center justify-center text-white transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#8da9c4] hover:bg-[#134074] flex items-center justify-center text-white transition-colors z-30"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -378,7 +415,7 @@ export function ScholarGraph({
                     className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
                   >
                     <LinkIcon className="w-4 h-4" />
-                    View Source
+                    Google Scholar
                   </a>
                 )}
               </div>
@@ -399,7 +436,6 @@ export function ScholarGraph({
                       }`}
                       onClick={() => {
                         if (author.id && author.link) {
-                          // Navigate to author's profile if they have an ID
                           const url = new URL(window.location.href);
                           const language = url.searchParams.get('hl') || 'en';
                           window.location.href = `/citations?user=${author.id}&hl=${language}`;
@@ -424,4 +460,3 @@ export function ScholarGraph({
     </div>
   );
 }
-

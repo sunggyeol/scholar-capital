@@ -21,6 +21,14 @@ function CitationsContent() {
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
 
+  // Prevent body scroll on this page
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   useEffect(() => {
     if (!userId) {
       setError('Missing user ID in URL. Please provide a valid Google Scholar user ID.');
@@ -169,7 +177,7 @@ function CitationsContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#eef4ed]">
+    <div className="flex flex-col h-screen bg-[#eef4ed] overflow-hidden">
       {/* Header */}
       <header className="bg-gradient-to-r from-[#8da9c4] to-[#d1dde7] border-b border-[#134074] px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -179,17 +187,17 @@ function CitationsContent() {
               href="/"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <div className="text-2xl font-bold text-[#0b2545] font-mono">
+              <div className="text-xl font-bold text-[#0b2545] font-mono">
                 Scholar<span className="text-[#134074]">Capital</span>
               </div>
             </a>
             
             {/* Divider */}
-            <div className="h-8 w-px bg-[#134074]"></div>
+            <div className="h-6 w-px bg-[#134074]"></div>
             
             {/* Author Info */}
             <div>
-              <h1 className="text-2xl font-bold text-[#0b2545]">
+              <h1 className="text-xl font-bold text-[#0b2545]">
                 {authorData.author.name}
               </h1>
               {authorData.author.affiliations && (
@@ -205,7 +213,7 @@ function CitationsContent() {
             {authorData.cited_by && authorData.cited_by.table?.[0] && (
               <div className="text-right">
                 <div className="text-sm text-[#13315c]">Total Citations</div>
-                <div className="text-2xl font-bold text-[#134074]">
+                <div className="text-xl font-bold text-[#134074]">
                   {authorData.cited_by.table[0].citations?.all.toLocaleString()}
                 </div>
               </div>
@@ -215,7 +223,7 @@ function CitationsContent() {
             {authorData.cited_by && authorData.cited_by.table?.[1] && (
               <div className="text-right">
                 <div className="text-sm text-[#13315c]">h-index</div>
-                <div className="text-2xl font-bold text-[#0b2545]">
+                <div className="text-xl font-bold text-[#0b2545]">
                   {authorData.cited_by.table[1].h_index?.all}
                 </div>
               </div>

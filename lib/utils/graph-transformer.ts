@@ -11,6 +11,44 @@ function deterministicDistance(seed: string, min = 450, max = 1400) {
 }
 
 /**
+ * Generate deterministic angle and distance for radial dispersion
+ * Uses golden angle spacing for even distribution around the circle
+ * Distances are scaled to ensure nodes stay within viewport
+ */
+function generateRadialPosition(seed: string, index: number, totalNodes: number, viewportWidth: number = 1200, viewportHeight: number = 800) {
+  // Generate hash for deterministic distance variation
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  
+  // Use golden angle (≈137.508°) for even distribution around the circle
+  // This ensures nodes are spread evenly without clustering
+  const goldenAngle = 2.399963229728653; // Golden angle in radians (137.508°)
+  const baseAngle = index * goldenAngle;
+  
+  // Add some variation based on hash to avoid perfect symmetry
+  const angleVariation = ((hash / 0xffffffff) * 0.5 - 0.25) * Math.PI / 6; // ±15 degrees variation
+  const angle = baseAngle + angleVariation;
+  
+  // Calculate max safe distance to keep nodes within viewport
+  // Use 35% of the smaller dimension to ensure nodes stay visible
+  const maxSafeDistance = Math.min(viewportWidth, viewportHeight) * 0.35;
+  
+  // Generate varied distance (30% to 35% of viewport size for better dispersion)
+  // Use hash for deterministic but varied distances
+  const distanceRatio = (hash / 0xffffffff);
+  const distance = maxSafeDistance * 0.85 + (distanceRatio * maxSafeDistance * 0.15);
+  
+  return {
+    angle,
+    distance: Math.round(distance),
+    x: Math.cos(angle) * distance,
+    y: Math.sin(angle) * distance,
+  };
+}
+
+/**
  * Transform Scholar API response into graph data structure
  */
 export function transformAuthorToGraph(
@@ -43,7 +81,7 @@ export function transformAuthorToGraph(
   // Add paper nodes (limited by maxPapers)
   const papers = data.articles.slice(0, maxPapers);
   
-  papers.forEach((article) => {
+  papers.forEach((article, index) => {
     const paperId = `paper-${article.citation_id || article.id || article.title}`;
     
     // Extract citation count from multiple possible locations
@@ -75,12 +113,18 @@ export function transformAuthorToGraph(
       authorsList = authorsStr.split(',').map(name => ({ name: name.trim() }));
     }
     
+    // Generate radial position for dispersion (using default viewport size)
+    // Actual viewport size will be adjusted in the graph component
+    const radialPos = generateRadialPosition(paperId, index, papers.length);
+    
     nodes.push({
       id: paperId,
       name: article.title,
       type: 'paper',
       val: nodeSize,
       color: '#13315c', // Berkeley blue
+      x: radialPos.x, // Initial x position
+      y: radialPos.y, // Initial y position
       metadata: {
         citationCount,
         year: article.year?.toString(),
@@ -91,7 +135,8 @@ export function transformAuthorToGraph(
         citation_id: article.citation_id, // For fetching full author names
         cites_id: article.inline_links?.cited_by?.cites_id || article.cited_by?.cites_id,
         expanded: false,
-        layoutDistance: deterministicDistance(paperId),
+        layoutDistance: radialPos.distance,
+        initialAngle: radialPos.angle,
       },
     });
     
@@ -193,7 +238,7 @@ export function addMorePapers(
   const newNodes = [...currentGraph.nodes];
   const newLinks = [...currentGraph.links];
   
-  additionalPapers.forEach((article) => {
+  additionalPapers.forEach((article, index) => {
     const paperId = `paper-${article.citation_id || article.id || article.title}`;
     
     // Check if paper already exists
@@ -206,18 +251,26 @@ export function addMorePapers(
         ? Math.min(20, 8 + Math.log10(citationCount) * 3)
         : 8;
       
+      // Generate radial position for dispersion
+      // Use the current total number of papers for spacing
+      const currentPaperCount = newNodes.filter(n => n.type === 'paper').length;
+      const radialPos = generateRadialPosition(paperId, currentPaperCount, additionalPapers.length + currentPaperCount);
+      
       newNodes.push({
         id: paperId,
         name: article.title,
         type: 'paper',
         val: nodeSize,
         color: '#10b981',
+        x: radialPos.x, // Initial x position
+        y: radialPos.y, // Initial y position
         metadata: {
           citationCount,
           year: article.year?.toString(),
           link: article.link || article.title_link,
           expanded: false,
-          layoutDistance: deterministicDistance(paperId),
+          layoutDistance: radialPos.distance,
+          initialAngle: radialPos.angle,
         },
       });
       

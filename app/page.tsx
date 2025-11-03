@@ -138,8 +138,8 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-[#eef4ed] via-white to-[#d1dde7] flex items-center justify-center px-4">
       <div className="w-full max-w-3xl">
         {/* Title */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-bold text-[#0b2545] mb-2 font-mono">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-[#0b2545] mb-2 font-mono">
             Scholar<span className="text-[#134074]">Capital</span>
           </h1>
         </div>
@@ -154,11 +154,11 @@ export default function Home() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for researchers..."
-                  className="w-full px-6 py-5 pr-12 text-xl bg-white border-2 border-[#8da9c4] text-[#0b2545] placeholder-[#13315c] rounded-xl focus:ring-2 focus:ring-[#134074] focus:border-[#134074] outline-none shadow-lg"
+                  className="w-full px-4 py-3 pr-10 text-base bg-white border-2 border-[#8da9c4] text-[#0b2545] placeholder-[#13315c] rounded-xl focus:ring-2 focus:ring-[#134074] focus:border-[#134074] outline-none shadow-lg"
                   autoFocus
                 />
                 <svg
-                  className="absolute right-5 top-1/2 transform -translate-y-1/2 w-6 h-6 text-[#13315c]"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#13315c]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -174,7 +174,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-10 py-5 bg-[#134074] text-white text-xl font-semibold rounded-xl hover:bg-[#0b2545] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                className="px-6 py-3 bg-[#134074] text-white text-base font-semibold rounded-xl hover:bg-[#0b2545] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? 'Searching...' : 'Search'}
               </button>

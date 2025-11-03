@@ -6,6 +6,10 @@ export interface GraphNode {
   type: 'researcher' | 'paper' | 'coauthor';
   val?: number; // Size of the node
   color?: string;
+  x?: number; // x position
+  y?: number; // y position
+  fx?: number; // Fixed x position
+  fy?: number; // Fixed y position
   metadata?: {
     citationCount?: number;
     year?: string;
@@ -24,6 +28,7 @@ export interface GraphNode {
     citation_id?: string; // For fetching full author names via view_citation
     cites_id?: string; // For fetching citations
     layoutDistance?: number; // For deterministic layout positioning
+    initialAngle?: number; // Initial angle for radial positioning
   };
 }
 

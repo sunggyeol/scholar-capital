@@ -112,19 +112,19 @@ export function ProfileSearchResults({
         <div
           key={profile.author_id}
           onClick={() => handleProfileClick(profile.author_id)}
-          className="bg-white border-2 border-[#8da9c4] rounded-lg p-5 hover:shadow-xl hover:shadow-[#134074]/30 hover:border-[#134074] hover:scale-[1.02] transition-all cursor-pointer group"
+          className="bg-white border-2 border-[#8da9c4] rounded-lg p-4 hover:shadow-xl hover:shadow-[#134074]/30 hover:border-[#134074] hover:scale-[1.02] transition-all cursor-pointer group"
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Avatar */}
             <div className="flex-shrink-0">
               {profile.thumbnail ? (
                 <img
                   src={profile.thumbnail}
                   alt={profile.name}
-                  className="w-14 h-14 rounded-full object-cover border-2 border-[#8da9c4] group-hover:border-[#134074] transition-colors"
+                  className="w-12 h-12 rounded-full object-cover border-2 border-[#8da9c4] group-hover:border-[#134074] transition-colors"
                 />
               ) : (
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#134074] to-[#13315c] flex items-center justify-center text-white text-xl font-bold group-hover:from-[#0b2545] group-hover:to-[#134074] transition-all">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#134074] to-[#13315c] flex items-center justify-center text-white text-lg font-bold group-hover:from-[#0b2545] group-hover:to-[#134074] transition-all">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -132,7 +132,7 @@ export function ProfileSearchResults({
 
             {/* Name & Info */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-xl font-bold text-[#0b2545] group-hover:text-[#134074] transition-colors mb-1">
+              <h3 className="text-lg font-bold text-[#0b2545] group-hover:text-[#134074] transition-colors mb-1">
                 {profile.name}
               </h3>
               
@@ -151,8 +151,8 @@ export function ProfileSearchResults({
 
             {/* Arrow Icon */}
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#134074] group-hover:bg-[#0b2545] flex items-center justify-center transition-all group-hover:scale-110">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-8 h-8 rounded-full bg-[#134074] group-hover:bg-[#0b2545] flex items-center justify-center transition-all group-hover:scale-110">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </div>
