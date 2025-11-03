@@ -23,6 +23,7 @@ export interface GraphNode {
     data_cid?: string; // For fetching additional details
     citation_id?: string; // For fetching full author names via view_citation
     cites_id?: string; // For fetching citations
+    layoutDistance?: number; // For deterministic layout positioning
   };
 }
 

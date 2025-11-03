@@ -39,13 +39,13 @@ export default function Home() {
       if (data.profiles && data.profiles.length > 0) {
         // Map SearchAPI profiles to our expected format
         const profiles = data.profiles.map((profile: any) => ({
-          title: profile.name,
+          name: profile.name,
           author_id: profile.author_id,
           link: profile.link,
           affiliations: profile.affiliations,
           email: profile.email,
           thumbnail: profile.thumbnail,
-          cited_by: profile.cited_by?.total
+          cited_by: profile.cited_by
         }));
         
         setSearchResults({ profiles, pagination: {} });
@@ -102,7 +102,7 @@ export default function Home() {
                 
                 if (isMatch) {
                   authorsMap.set(authorId, {
-                    title: authorName,
+                    name: authorName,
                     author_id: authorId,
                     link: author.link,
                   });
@@ -202,7 +202,7 @@ export default function Home() {
               results={searchResults.profiles || []}
               query={searchQuery}
               onLoadMore={handleLoadMore}
-              hasMore={!!searchResults.pagination?.next_page_token}
+              hasMore={!!searchResults.pagination?.next}
               loading={loading}
             />
           </div>

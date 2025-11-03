@@ -214,7 +214,7 @@ export function addMorePapers(
         color: '#10b981',
         metadata: {
           citationCount,
-          year: article.year,
+          year: article.year?.toString(),
           link: article.link || article.title_link,
           expanded: false,
           layoutDistance: deterministicDistance(paperId),

@@ -78,10 +78,20 @@ export interface ScholarAuthor {
 
 // Citation statistics and histogram
 export interface CitedByData {
-  table?: {
-    headers: string[];
-    rows: string[][];
-  };
+  table?: Array<{
+    citations?: {
+      all: number;
+      since_2019?: number;
+    };
+    h_index?: {
+      all: number;
+      since_2019?: number;
+    };
+    i10_index?: {
+      all: number;
+      since_2019?: number;
+    };
+  }>;
   histogram?: Array<{
     year: number;
     cites: number;

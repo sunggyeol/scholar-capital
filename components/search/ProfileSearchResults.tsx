@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation';
 import { LightBulbIcon, SparklesIcon } from '@heroicons/react/24/solid';
 
 interface ProfileResult {
-  title: string;
+  name: string;
   link: string;
   author_id: string;
   affiliations?: string;
   email?: string;
-  cited_by?: number;
+  cited_by?: {
+    total: number;
+  };
   thumbnail?: string;
   interests?: Array<{
     title: string;
@@ -118,12 +120,12 @@ export function ProfileSearchResults({
               {profile.thumbnail ? (
                 <img
                   src={profile.thumbnail}
-                  alt={profile.title}
+                  alt={profile.name}
                   className="w-14 h-14 rounded-full object-cover border-2 border-[#8da9c4] group-hover:border-[#134074] transition-colors"
                 />
               ) : (
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#134074] to-[#13315c] flex items-center justify-center text-white text-xl font-bold group-hover:from-[#0b2545] group-hover:to-[#134074] transition-all">
-                  {profile.title.charAt(0).toUpperCase()}
+                  {profile.name.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
@@ -131,7 +133,7 @@ export function ProfileSearchResults({
             {/* Name & Info */}
             <div className="flex-1 min-w-0">
               <h3 className="text-xl font-bold text-[#0b2545] group-hover:text-[#134074] transition-colors mb-1">
-                {profile.title}
+                {profile.name}
               </h3>
               
               {profile.affiliations && (
@@ -142,7 +144,7 @@ export function ProfileSearchResults({
 
               {profile.cited_by !== undefined && (
                 <p className="text-xs text-[#13315c]">
-                  {profile.cited_by.toLocaleString()} citations
+                  {profile.cited_by.total.toLocaleString()} citations
                 </p>
               )}
             </div>

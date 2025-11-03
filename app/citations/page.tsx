@@ -202,7 +202,7 @@ function CitationsContent() {
           
           <div className="flex items-center gap-4">
             {/* Citation stats */}
-            {authorData.cited_by && authorData.cited_by.table[0] && (
+            {authorData.cited_by && authorData.cited_by.table?.[0] && (
               <div className="text-right">
                 <div className="text-sm text-[#13315c]">Total Citations</div>
                 <div className="text-2xl font-bold text-[#134074]">
@@ -212,7 +212,7 @@ function CitationsContent() {
             )}
             
             {/* H-index */}
-            {authorData.cited_by && authorData.cited_by.table[1] && (
+            {authorData.cited_by && authorData.cited_by.table?.[1] && (
               <div className="text-right">
                 <div className="text-sm text-[#13315c]">h-index</div>
                 <div className="text-2xl font-bold text-[#0b2545]">
