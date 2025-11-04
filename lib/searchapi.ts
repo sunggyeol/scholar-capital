@@ -45,7 +45,7 @@ async function makeSearchAPIRequest(params: SearchAPIParams) {
     headers: {
       'Content-Type': 'application/json',
     },
-    next: { revalidate: 3600 }, // Cache for 1 hour
+    next: { revalidate: 86400 }, // Cache for 1 day
   });
   
   if (!response.ok) {
