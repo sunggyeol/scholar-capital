@@ -179,51 +179,51 @@ function CitationsContent() {
   return (
     <div className="flex flex-col h-screen bg-[#eef4ed] overflow-hidden">
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#8da9c4] to-[#d1dde7] border-b border-[#134074] px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
+      <header className="bg-gradient-to-r from-[#8da9c4] to-[#d1dde7] border-b border-[#134074] px-3 md:px-6 py-2 md:py-4 flex-shrink-0">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+          <div className="flex items-center gap-3 md:gap-6">
             {/* Home Button with Logo */}
-            <a 
+            <a
               href="/"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <div className="text-xl font-bold text-[#0b2545] font-mono">
+              <div className="text-base md:text-xl font-bold text-[#0b2545] font-mono">
                 Scholar<span className="text-[#134074]">Capital</span>
               </div>
             </a>
-            
+
             {/* Divider */}
-            <div className="h-6 w-px bg-[#134074]"></div>
-            
+            <div className="h-4 md:h-6 w-px bg-[#134074]"></div>
+
             {/* Author Info */}
             <div>
-              <h1 className="text-xl font-bold text-[#0b2545]">
+              <h1 className="text-base md:text-xl font-bold text-[#0b2545]">
                 {authorData.author.name}
               </h1>
               {authorData.author.affiliations && (
-                <p className="text-sm text-[#13315c] mt-1">
+                <p className="text-xs md:text-sm text-[#13315c] mt-0.5 md:mt-1">
                   {authorData.author.affiliations}
                 </p>
               )}
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-3 md:gap-4 text-xs md:text-base">
             {/* Citation stats */}
             {authorData.cited_by && authorData.cited_by.table?.[0] && (
-              <div className="text-right">
-                <div className="text-sm text-[#13315c]">Total Citations</div>
-                <div className="text-xl font-bold text-[#134074]">
+              <div className="text-left md:text-right">
+                <div className="text-xs md:text-sm text-[#13315c]">Total Citations</div>
+                <div className="text-base md:text-xl font-bold text-[#134074]">
                   {authorData.cited_by.table[0].citations?.all.toLocaleString()}
                 </div>
               </div>
             )}
-            
+
             {/* H-index */}
             {authorData.cited_by && authorData.cited_by.table?.[1] && (
-              <div className="text-right">
-                <div className="text-sm text-[#13315c]">h-index</div>
-                <div className="text-xl font-bold text-[#0b2545]">
+              <div className="text-left md:text-right">
+                <div className="text-xs md:text-sm text-[#13315c]">h-index</div>
+                <div className="text-base md:text-xl font-bold text-[#0b2545]">
                   {authorData.cited_by.table[1].h_index?.all}
                 </div>
               </div>
@@ -233,32 +233,32 @@ function CitationsContent() {
       </header>
 
       {/* Control Panel */}
-      <div className="bg-white border-b border-[#8da9c4] px-6 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#13315c]">
+      <div className="bg-white border-b border-[#8da9c4] px-3 md:px-6 py-2 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <span className="text-xs md:text-sm text-[#13315c]">
             Showing {Math.min(visiblePapers, authorData.articles.length)} recent papers
           </span>
-          
+
           {visiblePapers < authorData.articles.length && (
             <div className="flex gap-2">
               <button
                 onClick={() => handleLoadMorePapers(visiblePapers + 20)}
-                className="px-3 py-1 text-sm bg-[#134074] text-white rounded hover:bg-[#0b2545] transition-colors"
+                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-[#134074] text-white rounded hover:bg-[#0b2545] transition-colors"
               >
-                Load 20 more papers
+                +20 more
               </button>
               <button
                 onClick={() => handleLoadMorePapers(authorData.articles.length)}
-                className="px-3 py-1 text-sm bg-[#13315c] text-white rounded hover:bg-[#0b2545] transition-colors"
+                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-[#13315c] text-white rounded hover:bg-[#0b2545] transition-colors"
               >
-                Load All ({authorData.articles.length})
+                All ({authorData.articles.length})
               </button>
             </div>
           )}
         </div>
-        
+
         {selectedNode && (
-          <div className="text-sm">
+          <div className="text-xs md:text-sm truncate">
             <span className="text-[#13315c]">Selected: </span>
             <span className="font-semibold text-[#0b2545]">{selectedNode.name}</span>
           </div>

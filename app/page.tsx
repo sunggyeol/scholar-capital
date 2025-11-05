@@ -135,11 +135,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#eef4ed] via-white to-[#d1dde7] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#eef4ed] via-white to-[#d1dde7] flex items-center md:items-center justify-center px-4 pt-8 md:pt-0">
       <div className="w-full max-w-3xl">
         {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#0b2545] mb-2 font-mono">
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold text-[#0b2545] mb-2 font-mono">
             Scholar<span className="text-[#134074]">Capital</span>
           </h1>
         </div>
@@ -190,7 +190,7 @@ export default function Home() {
 
         {/* Loading */}
         {loading && !searchResults && (
-          <div className="flex justify-center py-12">
+          <div className="mt-8">
             <LoadingSpinner message="Searching for researchers..." />
           </div>
         )}

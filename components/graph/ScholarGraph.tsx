@@ -239,28 +239,51 @@ export function ScholarGraph({
       style: {
         'background-color': (ele: any) => {
           const type = ele.data('type');
-          if (type === 'researcher') return '#134074';
+          if (type === 'researcher') return '#8da9c4';
           if (type === 'paper') return '#13315c';
-          return '#8da9c4';
+          return '#134074';
         },
         'width': (ele: any) => ele.data('size'),
         'height': (ele: any) => ele.data('size'),
         'label': (ele: any) => {
           const type = ele.data('type');
-          return type === 'researcher' ? ele.data('label') : '';
+          if (type === 'researcher') return ele.data('label');
+          if (type === 'paper') {
+            const nodeData = ele.data('nodeData');
+            return nodeData?.metadata?.year || '';
+          }
+          return '';
         },
-        'color': '#0b2545',
-        'text-valign': 'bottom',
+        'color': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? '#ffffff' : '#0b2545';
+        },
+        'text-valign': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? 'center' : 'bottom';
+        },
         'text-halign': 'center',
-        'text-margin-y': 5,
-        'font-size': '12px',
+        'text-margin-y': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? 0 : 5;
+        },
+        'font-size': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? '9px' : '12px';
+        },
         'font-weight': 'bold',
         'text-wrap': 'wrap',
         'text-max-width': '120px',
         'border-width': 3,
         'border-color': '#0b2545',
-        'text-background-color': '#eef4ed',
-        'text-background-opacity': 0.9,
+        'text-background-color': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? 'transparent' : '#eef4ed';
+        },
+        'text-background-opacity': (ele: any) => {
+          const type = ele.data('type');
+          return type === 'paper' ? 0 : 0.9;
+        },
         'text-background-padding': '4px',
         'text-background-shape': 'roundrectangle'
       }
@@ -328,24 +351,20 @@ export function ScholarGraph({
           maxZoom={3}
         />
 
-        {/* Legend */}
-        <div className="absolute top-4 left-4 bg-[#eef4ed]/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border-2 border-[#8da9c4] z-10">
-          <h3 className="font-bold mb-3 text-sm text-[#0b2545]">Legend</h3>
-          <div className="space-y-2 text-xs text-[#13315c]">
+        {/* Legend - Bottom on mobile, top-left on desktop */}
+        <div className="absolute bottom-4 left-4 right-4 md:top-4 md:bottom-auto md:right-auto md:w-auto bg-[#eef4ed]/95 backdrop-blur-sm p-3 md:p-4 rounded-xl shadow-lg border-2 border-[#8da9c4] z-10">
+          <h3 className="font-bold mb-2 md:mb-3 text-xs md:text-sm text-[#0b2545]">Legend</h3>
+          <div className="flex md:flex-col gap-4 md:gap-0 md:space-y-2 text-xs text-[#13315c]">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-[#134074] border-2 border-[#0b2545] shadow-md"></div>
-              <span>Researcher</span>
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[#8da9c4] border-2 border-[#0b2545] shadow-md flex-shrink-0"></div>
+              <span className="whitespace-nowrap">Researcher</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-[#13315c] border-2 border-[#0b2545] shadow-md"></div>
-              <span>Paper</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-[#8da9c4] border-2 border-[#134074] shadow-md"></div>
-              <span>Co-author</span>
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[#13315c] border-2 border-[#0b2545] shadow-md flex-shrink-0"></div>
+              <span className="whitespace-nowrap">Paper</span>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-[#8da9c4] text-xs text-[#13315c]">
+          <div className="hidden md:block mt-3 pt-3 border-t border-[#8da9c4] text-xs text-[#13315c]">
             <p className="flex items-center gap-1"><LightBulbIcon className="w-4 h-4" /> Click paper to expand</p>
             <p className="flex items-center gap-1"><CursorArrowRaysIcon className="w-4 h-4" /> Drag to rearrange</p>
             <p className="flex items-center gap-1"><MagnifyingGlassIcon className="w-4 h-4" /> Scroll to zoom</p>
@@ -353,9 +372,127 @@ export function ScholarGraph({
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* Backdrop for mobile */}
       {selectedNode && (
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-20 scrollbar-hide">
+        <div
+          className="md:hidden absolute inset-0 bg-black/30 z-20 backdrop-fade"
+          onClick={() => setSelectedNode(null)}
+        />
+      )}
+
+      {/* Mobile drawer - Bottom */}
+      {selectedNode && (
+        <div className="md:hidden absolute left-0 right-0 bottom-0 max-h-[70vh] bg-[#eef4ed]/98 backdrop-blur-md border-t-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-30 scrollbar-hide drawer-slide-bottom">
+          {/* Drag handle */}
+          <div className="sticky top-0 bg-[#eef4ed]/98 backdrop-blur-md py-2 flex justify-center border-b border-[#8da9c4]/30">
+            <div className="w-12 h-1 bg-[#8da9c4] rounded-full"></div>
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={() => setSelectedNode(null)}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#8da9c4] hover:bg-[#134074] flex items-center justify-center text-white transition-colors z-30"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+
+          <div className="p-4">
+            {/* Node Type Badge */}
+            <div className="mb-4">
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
+                selectedNode.type === 'paper' ? 'bg-[#13315c] text-white' :
+                'bg-[#134074] text-white'
+              }`}>
+                {selectedNode.type.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Node Name */}
+            <h2 className="text-xl font-bold text-[#0b2545] mb-4 leading-tight">
+              {selectedNode.name}
+            </h2>
+
+            {/* Metadata */}
+            {selectedNode.metadata && (
+              <div className="space-y-3 mb-6">
+                {selectedNode.metadata.year && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CalendarIcon className="w-4 h-4 text-[#13315c]" />
+                    <span className="text-[#13315c]">Year:</span>
+                    <span className="text-[#0b2545] font-medium">{selectedNode.metadata.year}</span>
+                  </div>
+                )}
+                {selectedNode.metadata.citationCount !== undefined && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <ChartBarIcon className="w-4 h-4 text-[#13315c]" />
+                    <span className="text-[#13315c]">Citations:</span>
+                    <span className="text-[#134074] font-bold">{selectedNode.metadata.citationCount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedNode.metadata.venue && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPinIcon className="w-4 h-4 text-[#13315c] mt-0.5" />
+                    <div>
+                      <span className="text-[#13315c]">Venue:</span>
+                      <p className="text-[#0b2545] mt-1">{selectedNode.metadata.venue}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedNode.metadata.link && (
+                  <a
+                    href={selectedNode.metadata.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    Google Scholar
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Authors (for papers) */}
+            {selectedNode.type === 'paper' && selectedNode.metadata?.authors && selectedNode.metadata.authors.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-[#8da9c4]">
+                <h3 className="text-sm font-semibold text-[#13315c] mb-3">
+                  AUTHORS ({selectedNode.metadata.authors.length})
+                </h3>
+                <div className="space-y-2">
+                  {selectedNode.metadata.authors.map((author, idx) => (
+                    <div
+                      key={author.id || idx}
+                      className={`flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] ${
+                        author.link ? 'hover:bg-[#8da9c4]/20 transition-colors cursor-pointer' : ''
+                      }`}
+                      onClick={() => {
+                        if (author.id && author.link) {
+                          const url = new URL(window.location.href);
+                          const language = url.searchParams.get('hl') || 'en';
+                          window.location.href = `/citations?user=${author.id}&hl=${language}`;
+                        }
+                      }}
+                    >
+                      <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
+                      <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
+                      {author.link && (
+                        <svg className="w-4 h-4 text-[#13315c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop drawer - Right side */}
+      {selectedNode && (
+        <div className="hidden md:block absolute top-0 bottom-0 right-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-30 scrollbar-hide drawer-slide-right">
           {/* Close button */}
           <button
             onClick={() => setSelectedNode(null)}
@@ -368,9 +505,9 @@ export function ScholarGraph({
             {/* Node Type Badge */}
             <div className="mb-4">
               <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                selectedNode.type === 'researcher' ? 'bg-[#134074] text-white' :
+                selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
                 selectedNode.type === 'paper' ? 'bg-[#13315c] text-white' :
-                'bg-[#8da9c4] text-white'
+                'bg-[#134074] text-white'
               }`}>
                 {selectedNode.type.toUpperCase()}
               </span>

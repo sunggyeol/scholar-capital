@@ -37,3 +37,43 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* Drawer animations */
+@keyframes slide-in-from-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drawer-slide-bottom {
+  animation: slide-in-from-bottom 300ms ease-out forwards;
+}
+
+.drawer-slide-right {
+  animation: slide-in-from-right 300ms ease-out forwards;
+}
+
+.backdrop-fade {
+  animation: fade-in 200ms ease-out forwards;
+}
