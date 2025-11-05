@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ScholarGraph } from '@/components/graph/ScholarGraph';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -20,6 +20,12 @@ function CitationsContent() {
   const [error, setError] = useState<string | null>(null);
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+
+  // Cache for citation details to prevent duplicate API calls - use useRef to persist across renders
+  const citationCache = useRef<Map<string, any>>(new Map());
+
+  // Track pending requests to prevent duplicate fetches for the same citation
+  const pendingRequests = useRef<Map<string, Promise<any>>>(new Map());
 
   // Prevent body scroll on this page
   useEffect(() => {
@@ -85,84 +91,129 @@ function CitationsContent() {
     }
   };
 
-  const handleNodeClick = async (node: GraphNode) => {
+  // Helper function to update node with citation data
+  const updateNodeWithCitationData = useCallback((node: GraphNode, citationData: any) => {
+    if (!graphData || !citationData.citation) return;
+
+    const citation = citationData.citation;
+
+    // Get full author names
+    if (citation.authors) {
+      const authorsString = citation.authors;
+
+      // Parse comma-separated author names
+      const fullAuthorNames = authorsString.split(',').map((name: string) => name.trim());
+
+      // Create authors list with full names
+      const authorsList = fullAuthorNames.map((name: string) => ({
+        name,
+        id: undefined,
+        link: undefined,
+      }));
+
+      // Get full venue/publication info
+      let fullVenue = node.metadata?.venue;
+      if (citation.conference) {
+        fullVenue = citation.conference;
+      } else if (citation.journal) {
+        fullVenue = citation.journal;
+      } else if (citation.book) {
+        fullVenue = citation.book;
+      } else if (citation.publisher) {
+        fullVenue = citation.publisher;
+      } else {
+        // Default to Unknown if no venue information found
+        fullVenue = 'Unknown';
+      }
+
+      // Find the actual node object in graphData and update it in place
+      const actualNode = graphData.nodes.find(n => n.id === node.id);
+      if (actualNode && actualNode.metadata) {
+        // Mutate the node's metadata directly
+        actualNode.metadata.authors = authorsList;
+        if (fullVenue) {
+          actualNode.metadata.venue = fullVenue;
+        }
+
+        // Trigger a re-render by creating a new graphData reference
+        // but keep the same node objects (so graph doesn't reset)
+        setGraphData({
+          nodes: [...graphData.nodes],
+          links: graphData.links,
+        });
+      }
+    }
+  }, [graphData]);
+
+  const handleNodeClick = useCallback(async (node: GraphNode) => {
     setSelectedNode(node);
-    
+
     // Handle different node types
     if (node.type === 'paper') {
       // Fetch full author names using view_citation endpoint
       if (node.metadata?.citation_id && userId) {
-        try {
-          const response = await fetch(
-            `/api/scholar/author?user=${userId}&view_op=view_citation&citation_id=${node.metadata.citation_id}&hl=${language}`
-          );
-          
-          if (response.ok) {
-            const citationData = await response.json();
-            
-            // Extract full author names and venue from citation data
-            if (graphData && citationData.citation) {
-              const citation = citationData.citation;
-              
-              // Get full author names
-              if (citation.authors) {
-                const authorsString = citation.authors;
-                
-                // Parse comma-separated author names
-                const fullAuthorNames = authorsString.split(',').map((name: string) => name.trim());
-                
-                // Create authors list with full names
-                const authorsList = fullAuthorNames.map((name: string) => ({
-                  name,
-                  id: undefined,
-                  link: undefined,
-                }));
-                
-                // Get full venue/publication info
-                let fullVenue = node.metadata?.venue;
-                if (citation.conference) {
-                  fullVenue = citation.conference;
-                } else if (citation.journal) {
-                  fullVenue = citation.journal;
-                } else if (citation.book) {
-                  fullVenue = citation.book;
-                } else if (citation.publisher) {
-                  fullVenue = citation.publisher;
-                } else {
-                  // Default to Unknown if no venue information found
-                  fullVenue = 'Unknown';
-                }
-                
-                // Find the actual node object in graphData and update it in place
-                const actualNode = graphData.nodes.find(n => n.id === node.id);
-                if (actualNode && actualNode.metadata) {
-                  // Mutate the node's metadata directly
-                  actualNode.metadata.authors = authorsList;
-                  if (fullVenue) {
-                    actualNode.metadata.venue = fullVenue;
-                  }
-                  
-                  // Trigger a re-render by creating a new graphData reference
-                  // but keep the same node objects (so graph doesn't reset)
-                  setGraphData({
-                    nodes: [...graphData.nodes],
-                    links: graphData.links,
-                  });
-                }
-              }
-            }
-          } else {
-            console.error('Failed to fetch citation data:', response.status);
+        const citationId = node.metadata.citation_id;
+
+        // Check if we already have this data cached
+        if (citationCache.current.has(citationId)) {
+          const cachedData = citationCache.current.get(citationId);
+          updateNodeWithCitationData(node, cachedData);
+          return;
+        }
+
+        // Check if there's already a pending request for this citation
+        if (pendingRequests.current.has(citationId)) {
+          try {
+            const citationData = await pendingRequests.current.get(citationId);
+            updateNodeWithCitationData(node, citationData);
+          } catch (error) {
+            console.error('Error waiting for pending citation request:', error);
           }
+          return;
+        }
+
+        // If not cached and not pending, fetch from API
+        const fetchPromise = (async () => {
+          try {
+            const response = await fetch(
+              `/api/scholar/author?user=${userId}&view_op=view_citation&citation_id=${citationId}&hl=${language}`
+            );
+
+            if (response.ok) {
+              const citationData = await response.json();
+
+              // Cache the response
+              citationCache.current.set(citationId, citationData);
+
+              return citationData;
+            } else {
+              console.error('Failed to fetch citation data:', response.status);
+              throw new Error('Failed to fetch citation data');
+            }
+          } catch (error) {
+            console.error('Error fetching full author names:', error);
+            throw error;
+          } finally {
+            // Remove from pending requests
+            pendingRequests.current.delete(citationId);
+          }
+        })();
+
+        // Store the pending request
+        pendingRequests.current.set(citationId, fetchPromise);
+
+        try {
+          const citationData = await fetchPromise;
+          updateNodeWithCitationData(node, citationData);
         } catch (error) {
-          console.error('Error fetching full author names:', error);
+          // Error already logged above
         }
       }
     } else if (node.type === 'coauthor' && node.metadata?.authorId) {
       // Navigate to co-author's profile
       window.location.href = `/citations?user=${node.metadata.authorId}&hl=${language}`;
     }
-  };
+  }, [userId, language, updateNodeWithCitationData]);
 
   if (loading) {
     return <LoadingSpinner message="Loading scholar network..." />;
