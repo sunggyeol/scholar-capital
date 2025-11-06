@@ -19,6 +19,9 @@ import {
 interface ScholarGraphProps {
   data: GraphData;
   onNodeClick?: (node: GraphNode) => void;
+  onAuthorClick?: (authorName: string, authorId?: string) => Promise<any>;
+  authorProfiles?: Map<string, any>;
+  language?: string;
   width?: number;
   height?: number;
 }
@@ -26,6 +29,9 @@ interface ScholarGraphProps {
 export function ScholarGraph({
   data,
   onNodeClick,
+  onAuthorClick,
+  authorProfiles,
+  language = 'en',
   width,
   height
 }: ScholarGraphProps) {
@@ -34,6 +40,8 @@ export function ScholarGraph({
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [cytoscapeElements, setCytoscapeElements] = useState<any[]>([]);
+  const [expandedAuthor, setExpandedAuthor] = useState<string | null>(null);
+  const [loadingAuthor, setLoadingAuthor] = useState<string | null>(null);
 
   // Update dimensions on mount and resize
   useEffect(() => {
@@ -460,29 +468,74 @@ export function ScholarGraph({
                   AUTHORS ({selectedNode.metadata.authors.length})
                 </h3>
                 <div className="space-y-2">
-                  {selectedNode.metadata.authors.map((author, idx) => (
-                    <div
-                      key={author.id || idx}
-                      className={`flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] ${
-                        author.link ? 'hover:bg-[#8da9c4]/20 transition-colors cursor-pointer' : ''
-                      }`}
-                      onClick={() => {
-                        if (author.id && author.link) {
-                          const url = new URL(window.location.href);
-                          const language = url.searchParams.get('hl') || 'en';
-                          window.location.href = `/citations?user=${author.id}&hl=${language}`;
-                        }
-                      }}
-                    >
-                      <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
-                      <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
-                      {author.link && (
-                        <svg className="w-4 h-4 text-[#13315c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </div>
-                  ))}
+                  {selectedNode.metadata.authors.map((author, idx) => {
+                    const authorProfile = authorProfiles?.get(author.name);
+                    const isExpanded = expandedAuthor === author.name;
+                    const isLoading = loadingAuthor === author.name;
+
+                    return (
+                      <div key={author.id || idx}>
+                        <div
+                          className="flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] hover:bg-[#8da9c4]/20 transition-colors cursor-pointer"
+                          onClick={async () => {
+                            if (isExpanded) {
+                              setExpandedAuthor(null);
+                            } else {
+                              setExpandedAuthor(author.name);
+                              if (!authorProfile && onAuthorClick) {
+                                setLoadingAuthor(author.name);
+                                await onAuthorClick(author.name, author.id);
+                                setLoadingAuthor(null);
+                              }
+                            }
+                          }}
+                        >
+                          <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
+                          <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
+                          {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-[#134074] border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg
+                              className={`w-4 h-4 text-[#13315c] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </div>
+                        {isExpanded && authorProfile && (
+                          <div className="ml-6 mt-2 p-3 bg-[#eef4ed] border border-[#8da9c4] rounded-lg text-sm">
+                            {authorProfile.affiliations && (
+                              <div className="mb-2">
+                                <span className="text-[#13315c] font-medium">Affiliation:</span>
+                                <p className="text-[#0b2545] mt-1">{authorProfile.affiliations}</p>
+                              </div>
+                            )}
+                            {authorProfile.cited_by !== undefined && (
+                              <div className="mb-2">
+                                <span className="text-[#13315c] font-medium">Total Citations:</span>
+                                <span className="text-[#134074] font-bold ml-2">{authorProfile.cited_by.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {authorProfile.author_id && (
+                              <a
+                                href={`/citations?user=${authorProfile.author_id}&hl=${language}`}
+                                className="inline-flex items-center gap-1 text-[#134074] hover:text-[#0b2545] font-medium mt-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View Full Profile
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -565,29 +618,74 @@ export function ScholarGraph({
                   AUTHORS ({selectedNode.metadata.authors.length})
                 </h3>
                 <div className="space-y-2">
-                  {selectedNode.metadata.authors.map((author, idx) => (
-                    <div
-                      key={author.id || idx}
-                      className={`flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] ${
-                        author.link ? 'hover:bg-[#8da9c4]/20 transition-colors cursor-pointer' : ''
-                      }`}
-                      onClick={() => {
-                        if (author.id && author.link) {
-                          const url = new URL(window.location.href);
-                          const language = url.searchParams.get('hl') || 'en';
-                          window.location.href = `/citations?user=${author.id}&hl=${language}`;
-                        }
-                      }}
-                    >
-                      <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
-                      <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
-                      {author.link && (
-                        <svg className="w-4 h-4 text-[#13315c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </div>
-                  ))}
+                  {selectedNode.metadata.authors.map((author, idx) => {
+                    const authorProfile = authorProfiles?.get(author.name);
+                    const isExpanded = expandedAuthor === author.name;
+                    const isLoading = loadingAuthor === author.name;
+
+                    return (
+                      <div key={author.id || idx}>
+                        <div
+                          className="flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] hover:bg-[#8da9c4]/20 transition-colors cursor-pointer"
+                          onClick={async () => {
+                            if (isExpanded) {
+                              setExpandedAuthor(null);
+                            } else {
+                              setExpandedAuthor(author.name);
+                              if (!authorProfile && onAuthorClick) {
+                                setLoadingAuthor(author.name);
+                                await onAuthorClick(author.name, author.id);
+                                setLoadingAuthor(null);
+                              }
+                            }
+                          }}
+                        >
+                          <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
+                          <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
+                          {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-[#134074] border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg
+                              className={`w-4 h-4 text-[#13315c] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </div>
+                        {isExpanded && authorProfile && (
+                          <div className="ml-6 mt-2 p-3 bg-[#eef4ed] border border-[#8da9c4] rounded-lg text-sm">
+                            {authorProfile.affiliations && (
+                              <div className="mb-2">
+                                <span className="text-[#13315c] font-medium">Affiliation:</span>
+                                <p className="text-[#0b2545] mt-1">{authorProfile.affiliations}</p>
+                              </div>
+                            )}
+                            {authorProfile.cited_by !== undefined && (
+                              <div className="mb-2">
+                                <span className="text-[#13315c] font-medium">Total Citations:</span>
+                                <span className="text-[#134074] font-bold ml-2">{authorProfile.cited_by.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {authorProfile.author_id && (
+                              <a
+                                href={`/citations?user=${authorProfile.author_id}&hl=${language}`}
+                                className="inline-flex items-center gap-1 text-[#134074] hover:text-[#0b2545] font-medium mt-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View Full Profile
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

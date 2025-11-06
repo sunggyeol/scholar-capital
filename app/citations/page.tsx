@@ -20,12 +20,16 @@ function CitationsContent() {
   const [error, setError] = useState<string | null>(null);
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [authorProfiles, setAuthorProfiles] = useState<Map<string, any>>(new Map());
 
   // Cache for citation details to prevent duplicate API calls - use useRef to persist across renders
   const citationCache = useRef<Map<string, any>>(new Map());
 
   // Track pending requests to prevent duplicate fetches for the same citation
   const pendingRequests = useRef<Map<string, Promise<any>>>(new Map());
+
+  // Track pending author profile requests
+  const pendingAuthorRequests = useRef<Map<string, Promise<any>>>(new Map());
 
   // Prevent body scroll on this page
   useEffect(() => {
@@ -58,10 +62,21 @@ function CitationsContent() {
       }
 
       const data: ScholarAuthorResponse = await response.json();
-      setAuthorData(data);
+
+      // Sort articles by year in descending order (newest first)
+      const sortedData = {
+        ...data,
+        articles: [...data.articles].sort((a, b) => {
+          const yearA = a.year ? parseInt(String(a.year), 10) : 0;
+          const yearB = b.year ? parseInt(String(b.year), 10) : 0;
+          return yearB - yearA; // Descending order (newest first)
+        }),
+      };
+
+      setAuthorData(sortedData);
 
       // Transform to graph data
-      const graph = transformAuthorToGraph(data, {
+      const graph = transformAuthorToGraph(sortedData, {
         maxPapers: visiblePapers,
         includeCoAuthors: false,
       });
@@ -144,6 +159,73 @@ function CitationsContent() {
       }
     }
   }, [graphData]);
+
+  // Fetch author profile information
+  const fetchAuthorProfile = useCallback(async (authorName: string, authorId?: string) => {
+    // Check if we already have this data
+    if (authorProfiles.has(authorName)) {
+      return authorProfiles.get(authorName);
+    }
+
+    // Check if there's already a pending request
+    if (pendingAuthorRequests.current.has(authorName)) {
+      try {
+        return await pendingAuthorRequests.current.get(authorName);
+      } catch (error) {
+        console.error('Error waiting for pending author request:', error);
+        return null;
+      }
+    }
+
+    // Fetch from API
+    const fetchPromise = (async () => {
+      try {
+        // If we have author ID, use the author endpoint directly
+        if (authorId) {
+          const response = await fetch(`/api/scholar/author?user=${authorId}&hl=${language}`);
+          if (response.ok) {
+            const data = await response.json();
+            return {
+              name: data.author.name,
+              affiliations: data.author.affiliations,
+              cited_by: data.cited_by?.table?.[0]?.citations?.all,
+              author_id: authorId,
+            };
+          }
+        } else {
+          // Otherwise, search for the author by name
+          const response = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&hl=${language}&results=1`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.profiles && data.profiles.length > 0) {
+              const profile = data.profiles[0];
+              return {
+                name: profile.name,
+                affiliations: profile.affiliations,
+                cited_by: profile.cited_by?.total,
+                author_id: profile.author_id,
+              };
+            }
+          }
+        }
+        return null;
+      } catch (error) {
+        console.error('Error fetching author profile:', error);
+        return null;
+      } finally {
+        pendingAuthorRequests.current.delete(authorName);
+      }
+    })();
+
+    pendingAuthorRequests.current.set(authorName, fetchPromise);
+    const result = await fetchPromise;
+
+    if (result) {
+      setAuthorProfiles(prev => new Map(prev).set(authorName, result));
+    }
+
+    return result;
+  }, [authorProfiles, language]);
 
   const handleNodeClick = useCallback(async (node: GraphNode) => {
     setSelectedNode(node);
@@ -321,6 +403,9 @@ function CitationsContent() {
         <ScholarGraph
           data={graphData}
           onNodeClick={handleNodeClick}
+          onAuthorClick={fetchAuthorProfile}
+          authorProfiles={authorProfiles}
+          language={language}
         />
       </div>
     </div>
