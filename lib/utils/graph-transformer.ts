@@ -79,6 +79,7 @@ export function transformAuthorToGraph(
   });
   
   // Add paper nodes (limited by maxPapers)
+  // Note: Articles should already be sorted by the caller (e.g., citations page)
   const papers = data.articles.slice(0, maxPapers);
   
   papers.forEach((article, index) => {
