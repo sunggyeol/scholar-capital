@@ -74,7 +74,7 @@ export function transformAuthorToGraph(
     metadata: {
       affiliations: data.author.affiliations,
       thumbnail: data.author.thumbnail,
-      link: data.author.email,
+      link: `https://scholar.google.com/citations?user=${data.author.author_id || data.search_parameters?.author_id}&hl=${data.search_parameters?.hl || 'en'}`,
     },
   });
   
