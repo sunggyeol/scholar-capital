@@ -20,6 +20,7 @@ interface ScholarGraphProps {
   data: GraphData;
   onNodeClick?: (node: GraphNode) => void;
   onAuthorClick?: (authorName: string, authorId?: string) => Promise<any>;
+  onExpandResearcher?: (authorName: string, authorId?: string, sourcePaperId?: string) => Promise<void>;
   authorProfiles?: Map<string, any>;
   language?: string;
   width?: number;
@@ -30,6 +31,7 @@ export function ScholarGraph({
   data,
   onNodeClick,
   onAuthorClick,
+  onExpandResearcher,
   authorProfiles,
   language = 'en',
   width,
@@ -89,9 +91,9 @@ export function ScholarGraph({
     // Add nodes
     data.nodes.forEach((node) => {
       const nodeSize = node.type === 'researcher' ? 40 :
-                      node.type === 'paper' ?
-                        Math.max(20, Math.min(50, 20 + Math.log10((node.metadata?.citationCount || 0) + 1) * 8)) :
-                        25;
+        node.type === 'paper' ?
+          Math.max(20, Math.min(50, 20 + Math.log10((node.metadata?.citationCount || 0) + 1) * 8)) :
+          25;
 
       const element: any = {
         group: 'nodes',
@@ -107,10 +109,18 @@ export function ScholarGraph({
       // Set position if available from metadata
       if (node.metadata?.initialAngle !== undefined) {
         const distance = node.metadata.layoutDistance || 300;
-        element.position = {
-          x: Math.cos(node.metadata.initialAngle) * distance,
-          y: Math.sin(node.metadata.initialAngle) * distance
-        };
+        // If x and y are explicitly provided (e.g. from addResearcherToGraph), use them as base
+        // But the transformer now provides absolute x/y, so we should prefer those if available
+        if (node.x !== undefined && node.y !== undefined) {
+          element.position = { x: node.x, y: node.y };
+        } else {
+          element.position = {
+            x: Math.cos(node.metadata.initialAngle) * distance,
+            y: Math.sin(node.metadata.initialAngle) * distance
+          };
+        }
+      } else if (node.x !== undefined && node.y !== undefined) {
+        element.position = { x: node.x, y: node.y };
       } else if (node.type === 'researcher') {
         element.position = { x: 0, y: 0 };
       }
@@ -235,6 +245,64 @@ export function ScholarGraph({
       if (event.target === cy) {
         setSelectedNode(null);
       }
+    });
+
+    // Group dragging logic
+    let dragNodes: any[] = [];
+    let initialPositions: Map<string, { x: number; y: number }> = new Map();
+
+    cy.on('grab', 'node', (event) => {
+      const node = event.target;
+      const nodeData = node.data('nodeData') as GraphNode;
+
+      if (nodeData.type === 'researcher') {
+        // Find connected paper nodes
+        const connectedEdges = node.connectedEdges();
+        const connectedNodes = connectedEdges.connectedNodes().filter((n: any) => {
+          const data = n.data('nodeData');
+          // Only move paper nodes that are connected to this researcher
+          return data.type === 'paper' && n.id() !== node.id();
+        });
+
+        dragNodes = connectedNodes.toArray();
+        initialPositions.clear();
+
+        // Store relative positions
+        dragNodes.forEach(child => {
+          const childPos = child.position();
+          const parentPos = node.position();
+          initialPositions.set(child.id(), {
+            x: childPos.x - parentPos.x,
+            y: childPos.y - parentPos.y
+          });
+        });
+      }
+    });
+
+    cy.on('drag', 'node', (event) => {
+      const node = event.target;
+      const nodeData = node.data('nodeData') as GraphNode;
+
+      // Check if Ctrl or Meta key is pressed
+      const isCtrlPressed = event.originalEvent.ctrlKey || event.originalEvent.metaKey;
+
+      if (nodeData.type === 'researcher' && dragNodes.length > 0 && !isCtrlPressed) {
+        const parentPos = node.position();
+        dragNodes.forEach(child => {
+          const offset = initialPositions.get(child.id());
+          if (offset) {
+            child.position({
+              x: parentPos.x + offset.x,
+              y: parentPos.y + offset.y
+            });
+          }
+        });
+      }
+    });
+
+    cy.on('free', 'node', (event) => {
+      dragNodes = [];
+      initialPositions.clear();
     });
   }, [onNodeClick]);
 
@@ -407,11 +475,10 @@ export function ScholarGraph({
           <div className="p-4">
             {/* Node Type Badge */}
             <div className="mb-4">
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
                 selectedNode.type === 'paper' ? 'bg-[#13315c] text-white' :
-                'bg-[#134074] text-white'
-              }`}>
+                  'bg-[#134074] text-white'
+                }`}>
                 {selectedNode.type.toUpperCase()}
               </span>
             </div>
@@ -478,14 +545,23 @@ export function ScholarGraph({
                         <div
                           className="flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] hover:bg-[#8da9c4]/20 transition-colors cursor-pointer"
                           onClick={async () => {
-                            if (isExpanded) {
-                              setExpandedAuthor(null);
+                            console.log('Author clicked:', author.name);
+                            if (onExpandResearcher) {
+                              console.log('Calling onExpandResearcher');
+                              setLoadingAuthor(author.name);
+                              await onExpandResearcher(author.name, author.id, selectedNode.id);
+                              setLoadingAuthor(null);
                             } else {
-                              setExpandedAuthor(author.name);
-                              if (!authorProfile && onAuthorClick) {
-                                setLoadingAuthor(author.name);
-                                await onAuthorClick(author.name, author.id);
-                                setLoadingAuthor(null);
+                              console.log('onExpandResearcher not defined');
+                              if (isExpanded) {
+                                setExpandedAuthor(null);
+                              } else {
+                                setExpandedAuthor(author.name);
+                                if (!authorProfile && onAuthorClick) {
+                                  setLoadingAuthor(author.name);
+                                  await onAuthorClick(author.name, author.id);
+                                  setLoadingAuthor(null);
+                                }
                               }
                             }
                           }}
@@ -495,7 +571,7 @@ export function ScholarGraph({
                           {isLoading ? (
                             <div className="w-4 h-4 border-2 border-[#134074] border-t-transparent rounded-full animate-spin"></div>
                           ) : (
-                            <svg
+                            !onExpandResearcher && <svg
                               className={`w-4 h-4 text-[#13315c] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                               fill="none"
                               viewBox="0 0 24 24"
@@ -504,8 +580,13 @@ export function ScholarGraph({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           )}
+                          {onExpandResearcher && (
+                            <svg className="w-4 h-4 text-[#13315c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          )}
                         </div>
-                        {isExpanded && authorProfile && (
+                        {isExpanded && authorProfile && !onExpandResearcher && (
                           <div className="ml-6 mt-2 p-3 bg-[#eef4ed] border border-[#8da9c4] rounded-lg text-sm">
                             {authorProfile.affiliations && (
                               <div className="mb-2">
@@ -542,156 +623,170 @@ export function ScholarGraph({
           </div>
         </div>
       )}
+
+
 
       {/* Desktop drawer - Right side */}
-      {selectedNode && (
-        <div className="hidden md:block absolute top-0 bottom-0 right-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-30 scrollbar-hide drawer-slide-right">
-          {/* Close button */}
-          <button
-            onClick={() => setSelectedNode(null)}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#8da9c4] hover:bg-[#134074] flex items-center justify-center text-white transition-colors z-30"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
+      {
+        selectedNode && (
+          <div className="hidden md:block absolute top-0 bottom-0 right-0 w-96 bg-[#eef4ed]/98 backdrop-blur-md border-l-2 border-[#8da9c4] shadow-2xl overflow-y-auto z-30 scrollbar-hide drawer-slide-right">
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#8da9c4] hover:bg-[#134074] flex items-center justify-center text-white transition-colors z-30"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
 
-          <div className="p-6">
-            {/* Node Type Badge */}
-            <div className="mb-4">
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
-                selectedNode.type === 'paper' ? 'bg-[#13315c] text-white' :
-                'bg-[#134074] text-white'
-              }`}>
-                {selectedNode.type.toUpperCase()}
-              </span>
-            </div>
-
-            {/* Node Name */}
-            <h2 className="text-xl font-bold text-[#0b2545] mb-4 leading-tight">
-              {selectedNode.name}
-            </h2>
-
-            {/* Metadata */}
-            {selectedNode.metadata && (
-              <div className="space-y-3 mb-6">
-                {selectedNode.metadata.year && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CalendarIcon className="w-4 h-4 text-[#13315c]" />
-                    <span className="text-[#13315c]">Year:</span>
-                    <span className="text-[#0b2545] font-medium">{selectedNode.metadata.year}</span>
-                  </div>
-                )}
-                {selectedNode.metadata.citationCount !== undefined && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <ChartBarIcon className="w-4 h-4 text-[#13315c]" />
-                    <span className="text-[#13315c]">Citations:</span>
-                    <span className="text-[#134074] font-bold">{selectedNode.metadata.citationCount.toLocaleString()}</span>
-                  </div>
-                )}
-                {selectedNode.metadata.venue && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPinIcon className="w-4 h-4 text-[#13315c] mt-0.5" />
-                    <div>
-                      <span className="text-[#13315c]">Venue:</span>
-                      <p className="text-[#0b2545] mt-1">{selectedNode.metadata.venue}</p>
-                    </div>
-                  </div>
-                )}
-                {selectedNode.metadata.link && (
-                  <a
-                    href={selectedNode.metadata.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
-                  >
-                    <LinkIcon className="w-4 h-4" />
-                    Google Scholar
-                  </a>
-                )}
+            <div className="p-6">
+              {/* Node Type Badge */}
+              <div className="mb-4">
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${selectedNode.type === 'researcher' ? 'bg-[#8da9c4] text-white' :
+                  selectedNode.type === 'paper' ? 'bg-[#13315c] text-white' :
+                    'bg-[#134074] text-white'
+                  }`}>
+                  {selectedNode.type.toUpperCase()}
+                </span>
               </div>
-            )}
 
-            {/* Authors (for papers) */}
-            {selectedNode.type === 'paper' && selectedNode.metadata?.authors && selectedNode.metadata.authors.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-[#8da9c4]">
-                <h3 className="text-sm font-semibold text-[#13315c] mb-3">
-                  AUTHORS ({selectedNode.metadata.authors.length})
-                </h3>
-                <div className="space-y-2">
-                  {selectedNode.metadata.authors.map((author, idx) => {
-                    const authorProfile = authorProfiles?.get(author.name);
-                    const isExpanded = expandedAuthor === author.name;
-                    const isLoading = loadingAuthor === author.name;
+              {/* Node Name */}
+              <h2 className="text-xl font-bold text-[#0b2545] mb-4 leading-tight">
+                {selectedNode.name}
+              </h2>
 
-                    return (
-                      <div key={author.id || idx}>
-                        <div
-                          className="flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] hover:bg-[#8da9c4]/20 transition-colors cursor-pointer"
-                          onClick={async () => {
-                            if (isExpanded) {
-                              setExpandedAuthor(null);
-                            } else {
-                              setExpandedAuthor(author.name);
-                              if (!authorProfile && onAuthorClick) {
+              {/* Metadata */}
+              {selectedNode.metadata && (
+                <div className="space-y-3 mb-6">
+                  {selectedNode.metadata.year && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CalendarIcon className="w-4 h-4 text-[#13315c]" />
+                      <span className="text-[#13315c]">Year:</span>
+                      <span className="text-[#0b2545] font-medium">{selectedNode.metadata.year}</span>
+                    </div>
+                  )}
+                  {selectedNode.metadata.citationCount !== undefined && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <ChartBarIcon className="w-4 h-4 text-[#13315c]" />
+                      <span className="text-[#13315c]">Citations:</span>
+                      <span className="text-[#134074] font-bold">{selectedNode.metadata.citationCount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedNode.metadata.venue && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPinIcon className="w-4 h-4 text-[#13315c] mt-0.5" />
+                      <div>
+                        <span className="text-[#13315c]">Venue:</span>
+                        <p className="text-[#0b2545] mt-1">{selectedNode.metadata.venue}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedNode.metadata.link && (
+                    <a
+                      href={selectedNode.metadata.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                      Google Scholar
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Authors (for papers) */}
+              {selectedNode.type === 'paper' && selectedNode.metadata?.authors && selectedNode.metadata.authors.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-[#8da9c4]">
+                  <h3 className="text-sm font-semibold text-[#13315c] mb-3">
+                    AUTHORS ({selectedNode.metadata.authors.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedNode.metadata.authors.map((author, idx) => {
+                      const authorProfile = authorProfiles?.get(author.name);
+                      const isExpanded = expandedAuthor === author.name;
+                      const isLoading = loadingAuthor === author.name;
+
+                      return (
+                        <div key={author.id || idx}>
+                          <div
+                            className="flex items-center gap-3 p-3 rounded-lg bg-white border border-[#8da9c4] hover:bg-[#8da9c4]/20 transition-colors cursor-pointer"
+                            onClick={async () => {
+                              if (onExpandResearcher) {
                                 setLoadingAuthor(author.name);
-                                await onAuthorClick(author.name, author.id);
+                                await onExpandResearcher(author.name, author.id, selectedNode.id);
                                 setLoadingAuthor(null);
+                              } else {
+                                if (isExpanded) {
+                                  setExpandedAuthor(null);
+                                } else {
+                                  setExpandedAuthor(author.name);
+                                  if (!authorProfile && onAuthorClick) {
+                                    setLoadingAuthor(author.name);
+                                    await onAuthorClick(author.name, author.id);
+                                    setLoadingAuthor(null);
+                                  }
+                                }
                               }
-                            }
-                          }}
-                        >
-                          <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
-                          <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
-                          {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-[#134074] border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <svg
-                              className={`w-4 h-4 text-[#13315c] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          )}
-                        </div>
-                        {isExpanded && authorProfile && (
-                          <div className="ml-6 mt-2 p-3 bg-[#eef4ed] border border-[#8da9c4] rounded-lg text-sm">
-                            {authorProfile.affiliations && (
-                              <div className="mb-2">
-                                <span className="text-[#13315c] font-medium">Affiliation:</span>
-                                <p className="text-[#0b2545] mt-1">{authorProfile.affiliations}</p>
-                              </div>
-                            )}
-                            {authorProfile.cited_by !== undefined && (
-                              <div className="mb-2">
-                                <span className="text-[#13315c] font-medium">Total Citations:</span>
-                                <span className="text-[#134074] font-bold ml-2">{authorProfile.cited_by.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {authorProfile.author_id && (
-                              <a
-                                href={`/citations?user=${authorProfile.author_id}&hl=${language}`}
-                                className="inline-flex items-center gap-1 text-[#134074] hover:text-[#0b2545] font-medium mt-2"
-                                onClick={(e) => e.stopPropagation()}
+                            }}
+                          >
+                            <div className="w-3 h-3 rounded-full bg-[#134074]"></div>
+                            <span className="text-[#0b2545] text-sm flex-1">{author.name}</span>
+                            {isLoading ? (
+                              <div className="w-4 h-4 border-2 border-[#134074] border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              !onExpandResearcher && <svg
+                                className={`w-4 h-4 text-[#13315c] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
                               >
-                                View Full Profile
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                </svg>
-                              </a>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            )}
+                            {onExpandResearcher && (
+                              <svg className="w-4 h-4 text-[#13315c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
                             )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {isExpanded && authorProfile && !onExpandResearcher && (
+                            <div className="ml-6 mt-2 p-3 bg-[#eef4ed] border border-[#8da9c4] rounded-lg text-sm">
+                              {authorProfile.affiliations && (
+                                <div className="mb-2">
+                                  <span className="text-[#13315c] font-medium">Affiliation:</span>
+                                  <p className="text-[#0b2545] mt-1">{authorProfile.affiliations}</p>
+                                </div>
+                              )}
+                              {authorProfile.cited_by !== undefined && (
+                                <div className="mb-2">
+                                  <span className="text-[#13315c] font-medium">Total Citations:</span>
+                                  <span className="text-[#134074] font-bold ml-2">{authorProfile.cited_by.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {authorProfile.author_id && (
+                                <a
+                                  href={`/citations?user=${authorProfile.author_id}&hl=${language}`}
+                                  className="inline-flex items-center gap-1 text-[#134074] hover:text-[#0b2545] font-medium mt-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  View Full Profile
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

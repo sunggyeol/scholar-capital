@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { ScholarGraph } from '@/components/graph/ScholarGraph';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { transformAuthorToGraph, addMorePapers } from '@/lib/utils/graph-transformer';
+import { transformAuthorToGraph, addMorePapers, addResearcherToGraph, addResearcherPlaceholders, updateResearcherPapers } from '@/lib/utils/graph-transformer';
 import { GraphData, GraphNode } from '@/lib/types/graph';
 import { ScholarAuthorResponse } from '@/lib/types/scholar';
 
@@ -55,7 +55,7 @@ function CitationsContent() {
       setError(null);
 
       const response = await fetch(`/api/scholar/author?user=${userId}&hl=${language}&results=20&sortby=pubdate`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch author data');
@@ -95,12 +95,12 @@ function CitationsContent() {
 
     const currentCount = visiblePapers;
     const newCount = Math.min(count, authorData.articles.length);
-    
+
     if (newCount > currentCount) {
       const additionalPapers = authorData.articles.slice(currentCount, newCount);
       const researcherId = `researcher-${authorData.author.name}`;
       const updatedGraph = addMorePapers(graphData, researcherId, additionalPapers);
-      
+
       setGraphData(updatedGraph);
       setVisiblePapers(newCount);
     }
@@ -223,9 +223,68 @@ function CitationsContent() {
     if (result) {
       setAuthorProfiles(prev => new Map(prev).set(authorName, result));
     }
-
     return result;
   }, [authorProfiles, language]);
+
+  const handleExpandResearcher = useCallback(async (authorName: string, authorId?: string, sourcePaperId?: string) => {
+    console.log('handleExpandResearcher called', { authorName, authorId, sourcePaperId });
+
+    if (!graphData) return;
+
+    let targetAuthorId = authorId;
+
+    try {
+      // If no ID, search for the author first
+      if (!targetAuthorId) {
+        console.log('No author ID, searching for profile...', authorName);
+        const searchResponse = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&hl=${language}&results=1`);
+
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          if (searchData.profiles && searchData.profiles.length > 0) {
+            targetAuthorId = searchData.profiles[0].author_id;
+            console.log('Found author ID:', targetAuthorId);
+          } else {
+            console.warn('No profile found for author:', authorName);
+            // TODO: Show a toast or notification that author was not found
+            return;
+          }
+        } else {
+          console.error('Failed to search for author profile');
+          return;
+        }
+      }
+
+      if (!targetAuthorId) return;
+
+      // 1. Add placeholders immediately
+      const graphWithPlaceholders = addResearcherPlaceholders(graphData, authorName, sourcePaperId, 20);
+      setGraphData(graphWithPlaceholders);
+
+      // 2. Fetch data
+      const response = await fetch(`/api/scholar/author?user=${targetAuthorId}&hl=${language}&results=20&sortby=pubdate`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch author data for expansion');
+      }
+
+      const newAuthorData: ScholarAuthorResponse = await response.json();
+
+      // Sort articles by year in descending order
+      newAuthorData.articles.sort((a, b) => {
+        const yearA = a.year ? parseInt(String(a.year), 10) : 0;
+        const yearB = b.year ? parseInt(String(b.year), 10) : 0;
+        return yearB - yearA;
+      });
+
+      // 3. Update placeholders with real data
+      const finalGraph = updateResearcherPapers(graphWithPlaceholders, newAuthorData, authorName);
+      setGraphData(finalGraph);
+
+    } catch (error) {
+      console.error('Error expanding researcher:', error);
+    }
+  }, [graphData, language]);
 
   const handleNodeClick = useCallback(async (node: GraphNode) => {
     setSelectedNode(node);
@@ -404,6 +463,7 @@ function CitationsContent() {
           data={graphData}
           onNodeClick={handleNodeClick}
           onAuthorClick={fetchAuthorProfile}
+          onExpandResearcher={handleExpandResearcher}
           authorProfiles={authorProfiles}
           language={language}
         />

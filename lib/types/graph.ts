@@ -29,6 +29,7 @@ export interface GraphNode {
     cites_id?: string; // For fetching citations
     layoutDistance?: number; // For deterministic layout positioning
     initialAngle?: number; // Initial angle for radial positioning
+    loading?: boolean; // For async loading state
   };
 }
 
