@@ -379,7 +379,7 @@ function CitationsContent() {
               href="/"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <div className="text-base md:text-xl font-bold text-[#0b2545] font-mono">
+              <div className="text-base md:text-xl font-bold text-[#0b2545] font-serif">
                 Scholar<span className="text-[#134074]">Capital</span>
               </div>
             </a>

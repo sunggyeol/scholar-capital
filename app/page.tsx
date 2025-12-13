@@ -139,7 +139,7 @@ export default function Home() {
       <div className="w-full max-w-3xl">
         {/* Title */}
         <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-4xl font-bold text-[#0b2545] mb-2 font-mono">
+          <h1 className="text-2xl md:text-4xl font-bold text-[#0b2545] mb-2 font-serif">
             Scholar<span className="text-[#134074]">Capital</span>
           </h1>
         </div>
