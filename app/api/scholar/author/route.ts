@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAuthorProfile } from '@/lib/searchapi';
+import { fetchAuthorProfile } from '@/lib/scholar-client';
 import { ScholarAuthorResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
@@ -68,11 +68,7 @@ export async function GET(request: NextRequest) {
     // Fetch data from SearchAPI
     const data: ScholarAuthorResponse = await fetchAuthorProfile(authorId, options);
     
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400, s-maxage=3600, stale-while-revalidate=7200',
-      },
-    });
+    return NextResponse.json(data);
     
   } catch (error) {
     console.error('Error fetching author profile:', error);

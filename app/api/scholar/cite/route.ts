@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCitations } from '@/lib/searchapi';
+import { getCitations } from '@/lib/scholar-client';
 import { ScholarCiteResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
@@ -32,11 +32,7 @@ export async function GET(request: NextRequest) {
     
     const data: ScholarCiteResponse = await getCitations(dataCid, language);
     
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=172800',
-      },
-    });
+    return NextResponse.json(data);
     
   } catch (error) {
     console.error('Error fetching citations:', error);

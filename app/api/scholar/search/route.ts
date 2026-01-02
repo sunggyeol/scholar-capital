@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchArticles } from '@/lib/searchapi';
+import { searchArticles } from '@/lib/scholar-client';
 import { ScholarSearchResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
@@ -81,11 +81,7 @@ export async function GET(request: NextRequest) {
       data.scholar_results = data.organic_results;
     }
     
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400, s-maxage=3600, stale-while-revalidate=7200',
-      },
-    });
+    return NextResponse.json(data);
     
   } catch (error) {
     console.error('Error searching articles:', error);
