@@ -67,6 +67,10 @@ export function transformAuthorToGraph(
 ): GraphData {
   const { maxPapers = 10, includeCoAuthors = false } = options;
 
+  if (!data.author) {
+    return { nodes: [], links: [] };
+  }
+
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
 
@@ -87,16 +91,14 @@ export function transformAuthorToGraph(
 
   // Add paper nodes (limited by maxPapers)
   // Note: Articles should already be sorted by the caller (e.g., citations page)
-  const papers = data.articles.slice(0, maxPapers);
+  const papers = (data.articles || []).slice(0, maxPapers);
 
   papers.forEach((article, index) => {
-    const paperId = `paper-${article.citation_id || article.id || article.title}`;
+    const paperId = `paper-${article.citation_id || article.title}`;
 
     // Extract citation count from multiple possible locations
     let citationCount = 0;
-    if (article.inline_links?.cited_by?.total) {
-      citationCount = article.inline_links.cited_by.total;
-    } else if (article.cited_by?.total) {
+    if (article.cited_by?.total) {
       citationCount = article.cited_by.total;
     } else if (article.cited_by?.value !== undefined) {
       // Handle both string and number formats
@@ -140,12 +142,11 @@ export function transformAuthorToGraph(
       metadata: {
         citationCount,
         year: article.year?.toString(),
-        link: article.link || article.title_link,
+        link: article.link,
         venue: article.publication,
         authors: authorsList,
-        data_cid: article.data_cid,
         citation_id: article.citation_id, // For fetching full author names
-        cites_id: article.inline_links?.cited_by?.cites_id || article.cited_by?.cites_id,
+        cites_id: article.cited_by?.cites_id,
         expanded: false,
         layoutDistance: radialPos.distance,
         initialAngle: radialPos.angle,
@@ -251,7 +252,7 @@ export function addMorePapers(
   const newLinks = [...currentGraph.links];
 
   additionalPapers.forEach((article, index) => {
-    const paperId = `paper-${article.citation_id || article.id || article.title}`;
+    const paperId = `paper-${article.result_id || article.data_cid || article.title}`;
 
     // Check if paper already exists
     if (!newNodes.find(n => n.id === paperId)) {
@@ -314,6 +315,11 @@ export function addResearcherToGraph(
   options: { maxPapers?: number } = {}
 ): GraphData {
   const { maxPapers = 20 } = options;
+  
+  if (!researcherData.author) {
+    return currentGraph;
+  }
+
   const newNodes = [...currentGraph.nodes];
   const newLinks = [...currentGraph.links];
 
@@ -379,10 +385,10 @@ export function addResearcherToGraph(
   }
 
   // 4. Add new papers around the new researcher
-  const papers = researcherData.articles.slice(0, maxPapers);
+  const papers = (researcherData.articles || []).slice(0, maxPapers);
 
   papers.forEach((article, index) => {
-    const paperId = `paper-${article.citation_id || article.id || article.title}`;
+    const paperId = `paper-${article.citation_id || article.title}`;
 
     // Skip if paper is the source paper (already handled)
     if (paperId === sourcePaperId) return;
@@ -391,9 +397,7 @@ export function addResearcherToGraph(
     if (!newNodes.find(n => n.id === paperId)) {
       // Extract citation count
       let citationCount = 0;
-      if (article.inline_links?.cited_by?.total) {
-        citationCount = article.inline_links.cited_by.total;
-      } else if (article.cited_by?.total) {
+      if (article.cited_by?.total) {
         citationCount = article.cited_by.total;
       } else if (article.cited_by?.value !== undefined) {
         // Handle both string and number formats
@@ -426,7 +430,7 @@ export function addResearcherToGraph(
         metadata: {
           citationCount,
           year: article.year?.toString(),
-          link: article.link || article.title_link,
+          link: article.link,
           venue: article.publication,
           // We don't have full authors list here usually, just the string
           authors: typeof article.authors === 'string'
@@ -594,12 +598,15 @@ export function updateResearcherPapers(
   const newNodes = [...currentGraph.nodes];
   const newLinks = [...currentGraph.links];
   // Use the name that was used to create the placeholders/researcher node if provided
-  const researcherName = placeholderResearcherName || researcherData.author.name;
+  const researcherName = placeholderResearcherName || researcherData.author?.name;
+  if (!researcherName) {
+    return currentGraph;
+  }
   const researcherId = `researcher-${researcherName}`;
 
   // 1. Update researcher node metadata
   const researcherNodeIndex = newNodes.findIndex(n => n.id === researcherId);
-  if (researcherNodeIndex !== -1) {
+  if (researcherNodeIndex !== -1 && researcherData.author) {
     newNodes[researcherNodeIndex] = {
       ...newNodes[researcherNodeIndex],
       metadata: {
@@ -618,19 +625,17 @@ export function updateResearcherPapers(
     .map((n, i) => (n.id.startsWith(`placeholder-${researcherName}-`) ? i : -1))
     .filter(i => i !== -1);
 
-  const papers = researcherData.articles.slice(0, placeholderIndices.length); // Fill up to the number of placeholders (or less)
+  const papers = (researcherData.articles || []).slice(0, placeholderIndices.length); // Fill up to the number of placeholders (or less)
 
   papers.forEach((article, i) => {
     if (i < placeholderIndices.length) {
       const index = placeholderIndices[i];
       const placeholderNode = newNodes[index];
-      const paperId = `paper-${article.citation_id || article.id || article.title}`;
+      const paperId = `paper-${article.citation_id || article.title}`;
 
       // Calculate citation count and size
       let citationCount = 0;
-      if (article.inline_links?.cited_by?.total) {
-        citationCount = article.inline_links.cited_by.total;
-      } else if (article.cited_by?.total) {
+      if (article.cited_by?.total) {
         citationCount = article.cited_by.total;
       } else if (article.cited_by?.value !== undefined) {
         // Handle both string and number formats
@@ -657,10 +662,9 @@ export function updateResearcherPapers(
         metadata: {
           citationCount,
           year: article.year?.toString(),
-          link: article.link || article.title_link,
+          link: article.link,
           venue: article.publication,
           authors: Array.isArray(article.authors) ? article.authors.map(a => ({ name: a.name, id: a.id })) : [], // Simplified author mapping
-          data_cid: article.data_cid,
           citation_id: article.citation_id,
           expanded: false,
           layoutDistance: placeholderNode.metadata?.layoutDistance,

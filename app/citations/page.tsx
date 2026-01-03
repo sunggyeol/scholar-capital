@@ -91,13 +91,14 @@ function CitationsContent() {
   };
 
   const handleLoadMorePapers = (count: number) => {
-    if (!authorData || !graphData) return;
+    if (!authorData || !graphData || !authorData.author) return;
 
+    const articles = authorData.articles || [];
     const currentCount = visiblePapers;
-    const newCount = Math.min(count, authorData.articles.length);
+    const newCount = Math.min(count, articles.length);
 
     if (newCount > currentCount) {
-      const additionalPapers = authorData.articles.slice(currentCount, newCount);
+      const additionalPapers = articles.slice(currentCount, newCount);
       const researcherId = `researcher-${authorData.author.name}`;
       const updatedGraph = addMorePapers(graphData, researcherId, additionalPapers);
 
@@ -271,11 +272,13 @@ function CitationsContent() {
       const newAuthorData: ScholarAuthorResponse = await response.json();
 
       // Sort articles by year in descending order
-      newAuthorData.articles.sort((a, b) => {
-        const yearA = a.year ? parseInt(String(a.year), 10) : 0;
-        const yearB = b.year ? parseInt(String(b.year), 10) : 0;
-        return yearB - yearA;
-      });
+      if (newAuthorData.articles) {
+        newAuthorData.articles.sort((a, b) => {
+          const yearA = a.year ? parseInt(String(a.year), 10) : 0;
+          const yearB = b.year ? parseInt(String(b.year), 10) : 0;
+          return yearB - yearA;
+        });
+      }
 
       // 3. Update placeholders with real data
       const finalGraph = updateResearcherPapers(graphWithPlaceholders, newAuthorData, authorName);
@@ -388,16 +391,18 @@ function CitationsContent() {
             <div className="h-4 md:h-6 w-px bg-[#134074]"></div>
 
             {/* Author Info */}
-            <div>
-              <h1 className="text-base md:text-xl font-bold text-[#0b2545]">
-                {authorData.author.name}
-              </h1>
-              {authorData.author.affiliations && (
-                <p className="text-xs md:text-sm text-[#13315c] mt-0.5 md:mt-1">
-                  {authorData.author.affiliations}
-                </p>
-              )}
-            </div>
+            {authorData.author && (
+              <div>
+                <h1 className="text-base md:text-xl font-bold text-[#0b2545]">
+                  {authorData.author.name}
+                </h1>
+                {authorData.author.affiliations && (
+                  <p className="text-xs md:text-sm text-[#13315c] mt-0.5 md:mt-1">
+                    {authorData.author.affiliations}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 md:gap-4 text-xs md:text-base">
@@ -428,10 +433,10 @@ function CitationsContent() {
       <div className="bg-white border-b border-[#8da9c4] px-3 md:px-6 py-2 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           <span className="text-xs md:text-sm text-[#13315c]">
-            Showing {Math.min(visiblePapers, authorData.articles.length)} recent papers
+            Showing {Math.min(visiblePapers, (authorData.articles || []).length)} recent papers
           </span>
 
-          {visiblePapers < authorData.articles.length && (
+          {visiblePapers < (authorData.articles || []).length && (
             <div className="flex gap-2">
               <button
                 onClick={() => handleLoadMorePapers(visiblePapers + 20)}
@@ -440,10 +445,10 @@ function CitationsContent() {
                 +20 more
               </button>
               <button
-                onClick={() => handleLoadMorePapers(authorData.articles.length)}
+                onClick={() => handleLoadMorePapers((authorData.articles || []).length)}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-[#13315c] text-white rounded hover:bg-[#0b2545] transition-colors"
               >
-                All ({authorData.articles.length})
+                All ({(authorData.articles || []).length})
               </button>
             </div>
           )}

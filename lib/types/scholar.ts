@@ -77,7 +77,7 @@ export interface ScholarArticle {
   }>;
   year?: string | number;
   cited_by?: {
-    value?: string;
+    value?: string | number;
     total?: number;
     link?: string;
     cites_id?: string;
@@ -129,8 +129,9 @@ export interface AuthorArticle {
   authors?: string;
   publication?: string;
   cited_by?: {
-    value: number;
-    link: string;
+    value?: string | number;
+    total?: number;
+    link?: string;
     serpapi_link?: string;
     cites_id?: string;
   };
