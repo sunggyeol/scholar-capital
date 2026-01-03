@@ -3,14 +3,29 @@
 import { useState } from 'react';
 import { ProfileSearchResults } from '@/components/search/ProfileSearchResults';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { ScholarProfilesResponse } from '@/lib/types/scholar';
+
+// Profile result interface matching what ProfileSearchResults expects
+interface ProfileResult {
+  name: string;
+  author_id: string;
+  link: string;
+  affiliations?: string;
+  email?: string;
+  thumbnail?: string;
+  cited_by?: { total: number };
+  interests?: Array<{ title: string; link: string }>;
+}
+
+interface SearchState {
+  profiles: ProfileResult[];
+  hasMore: boolean;
+}
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ScholarProfilesResponse | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,104 +37,78 @@ export default function Home() {
 
     setLoading(true);
     setError('');
-    setHasSearched(true);
 
     try {
-      // Use General Scholar API with author: prefix
-      const response = await fetch(`/api/scholar/search?query=${encodeURIComponent(`author:${searchQuery}`)}&results=10`);
+      // Use SerpApi's Google Scholar API with author: query helper
+      const response = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(searchQuery)}`);
       
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to search for researchers');
       }
 
-      const data: any = await response.json();
+      const data = await response.json();
       
-      // PRIORITY 1: Use direct profile results from SearchAPI if available
-      if (data.profiles && data.profiles.length > 0) {
-        // Map SearchAPI profiles to our expected format
-        const profiles = data.profiles.map((profile: any) => ({
-          name: profile.name,
-          author_id: profile.author_id,
-          link: profile.link,
-          affiliations: profile.affiliations,
-          email: profile.email,
-          thumbnail: profile.thumbnail,
-          cited_by: profile.cited_by
-        }));
-        
-        setSearchResults({ profiles, pagination: {} });
-        
-        if (profiles.length === 0) {
-          setError(`No researchers found for "${searchQuery}". Try a different name.`);
+      const authorsMap = new Map<string, ProfileResult>();
+      
+      // PRIORITY 1: Check for top-level profiles object (direct author profile results)
+      // SerpApi returns this when searching with author:"name"
+      if (data.profiles?.authors && Array.isArray(data.profiles.authors)) {
+        for (const author of data.profiles.authors) {
+          if (author.author_id && !authorsMap.has(author.author_id)) {
+            authorsMap.set(author.author_id, {
+              name: author.name,
+              author_id: author.author_id,
+              link: author.link || `https://scholar.google.com/citations?user=${author.author_id}`,
+              affiliations: author.affiliations,
+              email: author.email,
+              thumbnail: author.thumbnail,
+              cited_by: typeof author.cited_by === 'number' 
+                ? { total: author.cited_by } 
+                : author.cited_by,
+            });
+          }
         }
-        return; // Exit early, we have profiles
       }
       
-      // PRIORITY 2: Fall back to extracting from papers if no direct profiles
-      // Use organic_results OR scholar_results (fallback for compatibility)
-      const results = data.scholar_results || data.organic_results || [];
+      // PRIORITY 2: Also extract authors from organic_results publication_info
+      const organicResults = data.organic_results || [];
       
-      // Helper function to check if author name matches search query
-      const matchesSearchQuery = (authorName: string, query: string): boolean => {
-        if (!authorName || !query) return false;
+      for (const result of organicResults) {
+        const authors = result.publication_info?.authors || [];
         
-        const normalizedAuthor = authorName.toLowerCase().replace(/[^a-z\s]/g, '');
-        const normalizedQuery = query.toLowerCase().replace(/[^a-z\s]/g, '');
-        
-        // Split into words for flexible matching
-        const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
-        const authorWords = normalizedAuthor.split(/\s+/).filter(w => w.length > 0);
-        
-        // Check if all query words appear in author name (in any order)
-        const allWordsMatch = queryWords.every(qWord => 
-          authorWords.some(aWord => 
-            aWord.includes(qWord) || qWord.includes(aWord)
-          )
-        );
-        
-        // Also check if query is a substring of author name
-        const substringMatch = normalizedAuthor.includes(normalizedQuery);
-        
-        return allWordsMatch || substringMatch;
-      };
-      
-      // Extract unique authors from paper results (ONLY those matching the search query)
-      const authorsMap = new Map();
-      if (results.length > 0) {
-        for (const paper of results) {
-          if (paper.authors) {
-            // Handle both array and string formats
-            const authorsList = Array.isArray(paper.authors) ? paper.authors : [];
+        for (const author of authors) {
+          if (author.author_id && !authorsMap.has(author.author_id)) {
+            // Check if author name matches search query (case insensitive)
+            const authorNameLower = (author.name || '').toLowerCase();
+            const queryLower = searchQuery.toLowerCase();
+            const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 0);
             
-            for (const author of authorsList) {
-              const authorId = author.author_id || author.id;
-              const authorName = author.name;
-              
-              // Only include authors whose names match the search query
-              if (authorId && !authorsMap.has(authorId)) {
-                const isMatch = matchesSearchQuery(authorName, searchQuery);
-                
-                if (isMatch) {
-                  authorsMap.set(authorId, {
-                    name: authorName,
-                    author_id: authorId,
-                    link: author.link,
-                  });
-                }
-              }
+            // Check if all query words appear in author name
+            const isMatch = queryWords.every((word: string) => 
+              authorNameLower.includes(word)
+            );
+            
+            if (isMatch) {
+              authorsMap.set(author.author_id, {
+                name: author.name,
+                author_id: author.author_id,
+                link: author.link || `https://scholar.google.com/citations?user=${author.author_id}`,
+              });
             }
           }
         }
       }
       
-      // Convert to profiles format
       const profiles = Array.from(authorsMap.values());
       
-      setSearchResults({ profiles, pagination: {} });
+      setSearchResults({ 
+        profiles, 
+        hasMore: !!data.serpapi_pagination?.next 
+      });
       
       if (profiles.length === 0) {
-        setError(`No researchers found for "${searchQuery}". Try a different name.`);
+        setError(`No researchers found for "${searchQuery}". Try a different name or use the URL replacement method.`);
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -130,7 +119,7 @@ export default function Home() {
   };
 
   const handleLoadMore = async () => {
-    // Not supported with general search approach
+    // Pagination would need additional implementation
     return;
   };
 
@@ -199,10 +188,10 @@ export default function Home() {
         {searchResults && (
           <div className="mt-8">
             <ProfileSearchResults
-              results={searchResults.profiles || []}
+              results={searchResults.profiles}
               query={searchQuery}
               onLoadMore={handleLoadMore}
-              hasMore={!!searchResults.pagination?.next}
+              hasMore={searchResults.hasMore}
               loading={loading}
             />
           </div>

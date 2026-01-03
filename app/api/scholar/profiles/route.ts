@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProfiles } from '@/lib/scholar-client';
-import { ScholarProfilesResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
 
 /**
  * GET /api/scholar/profiles?mauthors={authorName}
  * 
- * Searches for author profiles on Google Scholar via SearchAPI
- * Note: Uses google_scholar engine with "author:" prefix to find profiles
+ * Searches for author profiles on Google Scholar via SerpApi
+ * Uses the author: query helper since google_scholar_profiles is discontinued
+ * Docs: https://serpapi.com/google-scholar-api
  * 
  * Query Parameters:
  * - mauthors (required): Author name to search for
- * - results (optional): Number of results per page (default: 10)
- * - page (optional): Page number (default: 1)
  * - hl (optional): Language (default: 'en')
+ * - results (optional): Number of results (default: 10)
+ * - page (optional): Page number (default: 1)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -29,23 +29,15 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    const language = searchParams.get('hl') || 'en';
     const results = searchParams.get('results');
     const page = searchParams.get('page');
-    const language = searchParams.get('hl') || 'en';
     
-    const options: Parameters<typeof searchProfiles>[1] = {
+    const data = await searchProfiles(authorName, {
       language,
-    };
-    
-    if (results) {
-      options.results = parseInt(results, 10);
-    }
-    
-    if (page) {
-      options.page = parseInt(page, 10);
-    }
-    
-    const data: ScholarProfilesResponse = await searchProfiles(authorName, options);
+      results: results ? parseInt(results, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
+    });
     
     return NextResponse.json(data);
     
@@ -55,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('not configured')) {
         return NextResponse.json(
-          { error: 'API key not configured. Please set SEARCHAPI_API_KEY in environment variables.' },
+          { error: 'API key not configured. Please set SERPAPI_API_KEY in environment variables.' },
           { status: 500 }
         );
       }
@@ -72,4 +64,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

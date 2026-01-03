@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchArticles } from '@/lib/scholar-client';
-import { ScholarSearchResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
 
 /**
  * GET /api/scholar/search?query={searchQuery}
  * 
- * Searches for articles on Google Scholar via SearchAPI
+ * Searches for articles on Google Scholar via SerpApi
+ * Docs: https://serpapi.com/google-scholar-api
  * 
  * Query Parameters:
  * - query (required): Search query
@@ -18,7 +18,7 @@ export const runtime = 'edge';
  * - as_yhi (optional): Ending year for results
  * - cites (optional): Citation ID for "Cited By" search
  * - cluster (optional): Cluster ID for article versions
- * - scisbd (optional): Sort by date filter (0=relevance, 1=date+abstracts, 2=date)
+ * - scisbd (optional): Sort by date (0=relevance, 1=date)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -74,12 +74,7 @@ export async function GET(request: NextRequest) {
       options.scisbd = parseInt(scisbd, 10);
     }
     
-    const data: ScholarSearchResponse = await searchArticles(query, options);
-    
-    // Ensure backward compatibility by mapping organic_results to scholar_results
-    if (data.organic_results && !data.scholar_results) {
-      data.scholar_results = data.organic_results;
-    }
+    const data = await searchArticles(query, options);
     
     return NextResponse.json(data);
     
@@ -89,7 +84,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('not configured')) {
         return NextResponse.json(
-          { error: 'API key not configured. Please set SEARCHAPI_API_KEY in environment variables.' },
+          { error: 'API key not configured. Please set SERPAPI_API_KEY in environment variables.' },
           { status: 500 }
         );
       }
@@ -106,4 +101,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

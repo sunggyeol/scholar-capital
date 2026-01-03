@@ -66,7 +66,7 @@ function CitationsContent() {
       // Sort articles by year in descending order (newest first)
       const sortedData = {
         ...data,
-        articles: [...data.articles].sort((a, b) => {
+        articles: [...(data.articles || [])].sort((a, b) => {
           const yearA = a.year ? parseInt(String(a.year), 10) : 0;
           const yearB = b.year ? parseInt(String(b.year), 10) : 0;
           return yearB - yearA; // Descending order (newest first)

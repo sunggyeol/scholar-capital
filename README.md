@@ -23,7 +23,7 @@ pnpm install
 
 ### 2. Configure API Key
 
-Copy the example environment file and add your SearchAPI key:
+Copy the example environment file and add your SerpApi key:
 
 ```bash
 cp .env.example .env.local
@@ -31,10 +31,10 @@ cp .env.example .env.local
 
 Edit `.env.local` and add your API key:
 ```
-SEARCHAPI_API_KEY=your_api_key_here
+SERPAPI_API_KEY=your_api_key_here
 ```
 
-Get your API key from [SearchAPI](https://www.searchapi.io/).
+Get your API key from [SerpApi](https://serpapi.com/).
 
 ### 3. Run the Development Server
 
@@ -85,14 +85,12 @@ https://scholar.google.com/citations?user=Yua2oBoAAAAJ&hl=en
 https://scholar.capital/citations?user=Yua2oBoAAAAJ&hl=en
 ```
 
-### Method 2: Search for Researchers (Limited)
+### Method 2: Search for Researchers
 
 1. Visit the homepage
-2. Search by common first names only (e.g., "Mike", "John", "David")
+2. Search for researchers by name
 3. Click on a profile from the search results
 4. Explore the interactive network visualization
-
-**Note:** Profile search has very limited data coverage. For best results, use the URL replacement method above.
 
 ## Development
 
@@ -128,23 +126,28 @@ scholarcapital/
 ├── lib/
 │   ├── types/              # TypeScript type definitions
 │   ├── utils/              # Utility functions
-│   └── searchapi.ts        # API client for SearchAPI
+│   ├── serpapi.ts          # SerpApi client
+│   └── scholar-client.ts   # Unified Scholar client
 └── public/                 # Static assets
 ```
 
-## Documentation
+## API Reference
 
-- [API Documentation](./API_DOCUMENTATION.md) - API routes and endpoints
-- [Local Testing Guide](./LOCAL_TESTING.md) - Testing domain replacement locally
-- [Usage Guide](./USAGE_GUIDE.md) - How to use the visualization
+This project uses [SerpApi](https://serpapi.com/) for Google Scholar data:
+
+- [Google Scholar API](https://serpapi.com/google-scholar-api) - Search articles (also used for profile search via `author:` helper)
+- [Google Scholar Author API](https://serpapi.com/google-scholar-author-api) - Author profiles and articles
+- [Google Scholar Cite API](https://serpapi.com/google-scholar-cite-api) - Citation formats
+
+Note: The Google Scholar Profiles API is discontinued. Profile search now uses the main Google Scholar API with the `author:` query helper.
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 with App Router
+- **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Visualization**: react-force-graph-2d
-- **Data Source**: Google Scholar (via SearchAPI)
+- **Data Source**: Google Scholar (via SerpApi)
 
 ## Deployment
 

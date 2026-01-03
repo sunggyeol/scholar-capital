@@ -1,36 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCitations } from '@/lib/scholar-client';
-import { ScholarCiteResponse } from '@/lib/types/scholar';
 
 export const runtime = 'edge';
 
 /**
- * GET /api/scholar/cite?data_cid={dataCid}
+ * GET /api/scholar/cite?q={dataCid}
  * 
- * Gets citation formats for a specific article via SearchAPI
+ * Gets citation formats for a specific article via SerpApi
+ * Docs: https://serpapi.com/google-scholar-cite-api
  * 
  * Query Parameters:
- * - data_cid (required): Article data_cid from search results
- * - query (optional): Legacy parameter (will use data_cid if present)
+ * - q (required): Article data_cid from search results
+ * - data_cid (optional): Alias for q parameter
  * - hl (optional): Language (default: 'en')
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Support both data_cid (SearchAPI) and query (legacy) parameters
-    const dataCid = searchParams.get('data_cid') || searchParams.get('query');
+    // Support both q (SerpApi) and data_cid (legacy) parameters
+    const dataCid = searchParams.get('q') || searchParams.get('data_cid');
     
     if (!dataCid) {
       return NextResponse.json(
-        { error: 'Missing required parameter: data_cid or query' },
+        { error: 'Missing required parameter: q or data_cid' },
         { status: 400 }
       );
     }
     
     const language = searchParams.get('hl') || 'en';
     
-    const data: ScholarCiteResponse = await getCitations(dataCid, language);
+    const data = await getCitations(dataCid, language);
     
     return NextResponse.json(data);
     
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('not configured')) {
         return NextResponse.json(
-          { error: 'API key not configured. Please set SEARCHAPI_API_KEY in environment variables.' },
+          { error: 'API key not configured. Please set SERPAPI_API_KEY in environment variables.' },
           { status: 500 }
         );
       }
@@ -57,4 +57,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

@@ -98,8 +98,12 @@ export function transformAuthorToGraph(
       citationCount = article.inline_links.cited_by.total;
     } else if (article.cited_by?.total) {
       citationCount = article.cited_by.total;
-    } else if (article.cited_by?.value) {
-      citationCount = parseInt(article.cited_by.value.replace(/,/g, ''), 10);
+    } else if (article.cited_by?.value !== undefined) {
+      // Handle both string and number formats
+      const value = article.cited_by.value;
+      citationCount = typeof value === 'string' 
+        ? parseInt(value.replace(/,/g, ''), 10) 
+        : (typeof value === 'number' ? value : 0);
     }
 
     // Calculate node size based on citation count (logarithmic scale)
@@ -251,9 +255,14 @@ export function addMorePapers(
 
     // Check if paper already exists
     if (!newNodes.find(n => n.id === paperId)) {
-      const citationCount = article.cited_by?.value
-        ? parseInt(article.cited_by.value.replace(/,/g, ''), 10)
-        : 0;
+      // Handle both string and number formats for citation count
+      let citationCount = 0;
+      if (article.cited_by?.value !== undefined) {
+        const value = article.cited_by.value;
+        citationCount = typeof value === 'string' 
+          ? parseInt(value.replace(/,/g, ''), 10) 
+          : (typeof value === 'number' ? value : 0);
+      }
 
       const nodeSize = citationCount > 0
         ? Math.min(20, 8 + Math.log10(citationCount) * 3)
@@ -386,8 +395,12 @@ export function addResearcherToGraph(
         citationCount = article.inline_links.cited_by.total;
       } else if (article.cited_by?.total) {
         citationCount = article.cited_by.total;
-      } else if (article.cited_by?.value) {
-        citationCount = parseInt(article.cited_by.value.replace(/,/g, ''), 10);
+      } else if (article.cited_by?.value !== undefined) {
+        // Handle both string and number formats
+        const value = article.cited_by.value;
+        citationCount = typeof value === 'string' 
+          ? parseInt(value.replace(/,/g, ''), 10) 
+          : (typeof value === 'number' ? value : 0);
       }
 
       const nodeSize = citationCount > 0
@@ -619,8 +632,12 @@ export function updateResearcherPapers(
         citationCount = article.inline_links.cited_by.total;
       } else if (article.cited_by?.total) {
         citationCount = article.cited_by.total;
-      } else if (article.cited_by?.value) {
-        citationCount = parseInt(article.cited_by.value.replace(/,/g, ''), 10);
+      } else if (article.cited_by?.value !== undefined) {
+        // Handle both string and number formats
+        const value = article.cited_by.value;
+        citationCount = typeof value === 'string' 
+          ? parseInt(value.replace(/,/g, ''), 10) 
+          : (typeof value === 'number' ? value : 0);
       }
 
       const nodeSize = citationCount > 0
