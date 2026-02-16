@@ -18,17 +18,15 @@
   --color-oxford-blue: var(--oxford-blue);
   --color-powder-blue: var(--powder-blue);
   --color-mint-cream: var(--mint-cream);
-  --font-sans: var(--font-work-sans);
-  --font-serif: var(--font-source-serif);
-  
-  /* Make Source Serif the default */
-  --default-font-family: var(--font-source-serif);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+
+  --default-font-family: var(--font-sans);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-source-serif), serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
 }
 
 /* Hide scrollbar but keep functionality */
