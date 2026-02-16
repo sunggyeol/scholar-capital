@@ -13,7 +13,7 @@
     "@vercel/analytics": "^1.6.1",
     "cytoscape": "^3.33.1",
     "force-graph": "^1.51.0",
-    "next": "16.0.7",
+    "next": "16.0.10",
     "react": "19.2.0",
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "19.2.0"
