@@ -5,87 +5,61 @@ export const runtime = 'edge';
 
 /**
  * GET /api/scholar/author?user={authorId}
- * 
- * Fetches author profile data from Google Scholar via SerpApi
- * Docs: https://serpapi.com/google-scholar-author-api
- * 
+ *
+ * Fetches author profile data from OpenAlex
+ * Docs: https://docs.openalex.org
+ *
  * Query Parameters:
- * - user (required): Google Scholar author ID
- * - results (optional): Number of articles to return
+ * - user (required): OpenAlex author ID (e.g., "A5023888391")
+ * - results (optional): Number of articles to return (default: 200)
  * - page (optional): Page number for pagination
- * - hl (optional): Language (default: 'en')
  * - sortby (optional): Sort order ('pubdate' | 'citedby')
- * - view_op (optional): View operation ('view_citation' | 'list_colleagues')
- * - citation_id (optional): Citation ID (required when view_op=view_citation)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    
-    // Get author ID from 'user' parameter (matching Google Scholar URL structure)
+
     const authorId = searchParams.get('user');
-    
+
     if (!authorId) {
       return NextResponse.json(
         { error: 'Missing required parameter: user' },
         { status: 400 }
       );
     }
-    
-    // Parse optional parameters
+
     const results = searchParams.get('results');
     const page = searchParams.get('page');
-    const language = searchParams.get('hl') || 'en';
     const sortby = searchParams.get('sortby') as 'pubdate' | 'citedby' | null;
-    const viewOp = searchParams.get('view_op') as 'view_citation' | 'list_colleagues' | null;
-    const citationId = searchParams.get('citation_id');
-    
-    // Build options object
-    const options: Parameters<typeof fetchAuthorProfile>[1] = {
-      language,
-    };
-    
+
+    const options: Parameters<typeof fetchAuthorProfile>[1] = {};
+
     if (results) {
       options.results = parseInt(results, 10);
     }
-    
+
     if (page) {
       options.page = parseInt(page, 10);
     }
-    
+
     if (sortby) {
       options.sortby = sortby;
     }
-    
-    if (viewOp) {
-      options.viewOp = viewOp;
-    }
-    
-    if (citationId) {
-      options.citationId = citationId;
-    }
-    
+
     const data = await fetchAuthorProfile(authorId, options);
-    
+
     return NextResponse.json(data);
-    
+
   } catch (error) {
     console.error('Error fetching author profile:', error);
-    
+
     if (error instanceof Error) {
-      if (error.message.includes('not configured')) {
-        return NextResponse.json(
-          { error: 'API key not configured. Please set SERPAPI_API_KEY in environment variables.' },
-          { status: 500 }
-        );
-      }
-      
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

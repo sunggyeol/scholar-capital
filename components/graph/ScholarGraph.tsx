@@ -522,7 +522,7 @@ export function ScholarGraph({
                     className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
                   >
                     <LinkIcon className="w-4 h-4" />
-                    Google Scholar
+                    View Paper
                   </a>
                 )}
               </div>
@@ -688,7 +688,7 @@ export function ScholarGraph({
                       className="inline-flex items-center gap-2 text-[#134074] hover:text-[#0b2545] text-sm font-medium"
                     >
                       <LinkIcon className="w-4 h-4" />
-                      Google Scholar
+                      View Paper
                     </a>
                   )}
                 </div>

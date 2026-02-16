@@ -55,7 +55,7 @@ const GROUP_COLORS: Record<string, string> = {
 };
 
 export default function Home() {
-  const { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile } = useScholarSearch();
+  const { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile, searchFor } = useScholarSearch();
 
   return (
     <>
@@ -174,9 +174,9 @@ export default function Home() {
               </div>
             </form>
 
-            {/* URL tip */}
+            {/* Powered by OpenAlex */}
             <p className="text-[#8da9c4] text-[11px] mt-4">
-              Or replace <code className="bg-[#eef4ed] px-1 rounded text-[10px] text-[#13315c]">scholar.google.com</code> → <code className="bg-[#134074]/5 px-1 rounded text-[10px] text-[#134074]">scholar.capital</code> in any URL
+              Powered by <a href="https://openalex.org" target="_blank" rel="noopener noreferrer" className="text-[#134074] hover:underline">OpenAlex</a> — the open catalog of scholarly works
             </p>
 
             {/* Error */}
@@ -223,9 +223,9 @@ export default function Home() {
                             <p className="text-[12px] text-[#8da9c4] truncate">{profile.affiliations}</p>
                           )}
                         </div>
-                        {profile.cited_by && (
+                        {profile.cited_by !== undefined && (
                           <span className="text-[11px] text-[#8da9c4] tabular-nums shrink-0">
-                            {profile.cited_by.total.toLocaleString()} cit.
+                            {profile.cited_by.toLocaleString()} cit.
                           </span>
                         )}
                       </div>
@@ -239,10 +239,10 @@ export default function Home() {
             {!searchResults && !loading && (
               <div className="mt-12">
                 <button
-                  onClick={() => navigateToProfile('Yua2oBoAAAAJ')}
+                  onClick={() => searchFor('Geoffrey Hinton')}
                   className="text-[#134074] text-[13px] font-medium hover:underline transition-colors"
                 >
-                  View a demo visualization &rarr;
+                  Try an example search &rarr;
                 </button>
               </div>
             )}

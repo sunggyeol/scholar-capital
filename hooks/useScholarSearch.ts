@@ -8,10 +8,9 @@ export interface ProfileResult {
   author_id: string;
   link: string;
   affiliations?: string;
-  email?: string;
+  cited_by?: number;
+  works_count?: number;
   thumbnail?: string;
-  cited_by?: { total: number };
-  interests?: Array<{ title: string; link: string }>;
 }
 
 export interface SearchState {
@@ -41,45 +40,26 @@ export function useScholarSearch() {
         throw new Error(errorData.error || 'Failed to search for researchers');
       }
       const data = await response.json();
-      const authorsMap = new Map<string, ProfileResult>();
 
+      // OpenAlex returns profiles directly in data.profiles.authors
+      const profiles: ProfileResult[] = [];
       if (data.profiles?.authors && Array.isArray(data.profiles.authors)) {
         for (const author of data.profiles.authors) {
-          if (author.author_id && !authorsMap.has(author.author_id)) {
-            authorsMap.set(author.author_id, {
+          if (author.author_id) {
+            profiles.push({
               name: author.name,
               author_id: author.author_id,
-              link: author.link || `https://scholar.google.com/citations?user=${author.author_id}`,
+              link: author.link || `https://openalex.org/authors/${author.author_id}`,
               affiliations: author.affiliations,
-              email: author.email,
+              cited_by: author.cited_by,
+              works_count: author.works_count,
               thumbnail: author.thumbnail,
-              cited_by: typeof author.cited_by === 'number' ? { total: author.cited_by } : author.cited_by,
-              interests: author.interests,
             });
           }
         }
       }
 
-      const organicResults = data.organic_results || [];
-      for (const result of organicResults) {
-        const authors = result.publication_info?.authors || [];
-        for (const author of authors) {
-          if (author.author_id && !authorsMap.has(author.author_id)) {
-            const authorNameLower = (author.name || '').toLowerCase();
-            const queryWords = searchQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 0);
-            if (queryWords.every((word: string) => authorNameLower.includes(word))) {
-              authorsMap.set(author.author_id, {
-                name: author.name,
-                author_id: author.author_id,
-                link: author.link || `https://scholar.google.com/citations?user=${author.author_id}`,
-              });
-            }
-          }
-        }
-      }
-
-      const profiles = Array.from(authorsMap.values());
-      setSearchResults({ profiles, hasMore: !!data.serpapi_pagination?.next });
+      setSearchResults({ profiles, hasMore: data.has_more || false });
       if (profiles.length === 0) {
         setError(`No researchers found for "${searchQuery}". Try a different name.`);
       }
@@ -91,8 +71,48 @@ export function useScholarSearch() {
   };
 
   const navigateToProfile = (authorId: string) => {
-    router.push(`/citations?user=${authorId}&hl=en`);
+    router.push(`/citations?user=${authorId}`);
   };
 
-  return { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile };
+  const searchFor = async (query: string) => {
+    setSearchQuery(query);
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to search for researchers');
+      }
+      const data = await response.json();
+
+      const profiles: ProfileResult[] = [];
+      if (data.profiles?.authors && Array.isArray(data.profiles.authors)) {
+        for (const author of data.profiles.authors) {
+          if (author.author_id) {
+            profiles.push({
+              name: author.name,
+              author_id: author.author_id,
+              link: author.link || `https://openalex.org/authors/${author.author_id}`,
+              affiliations: author.affiliations,
+              cited_by: author.cited_by,
+              works_count: author.works_count,
+              thumbnail: author.thumbnail,
+            });
+          }
+        }
+      }
+
+      setSearchResults({ profiles, hasMore: data.has_more || false });
+      if (profiles.length === 0) {
+        setError(`No researchers found for "${query}". Try a different name.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while searching');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile, searchFor };
 }
