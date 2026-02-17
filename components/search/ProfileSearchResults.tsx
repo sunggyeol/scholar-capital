@@ -70,26 +70,16 @@ export function ProfileSearchResults({
             </h4>
             <div className="space-y-3 text-sm text-[#13315c]">
               <div>
-                <p className="font-medium text-[#0b2545] mb-1">1. Use the Demo</p>
-                <a 
-                  href="/citations?user=Yua2oBoAAAAJ&hl=en"
-                  className="text-[#134074] hover:text-[#0b2545] underline font-medium"
-                >
-                  View Demo Visualization →
-                </a>
-              </div>
-              
-              <div>
-                <p className="font-medium text-[#0b2545] mb-1">2. Paste a Google Scholar URL</p>
+                <p className="font-medium text-[#0b2545] mb-1">1. Try a Different Search</p>
                 <p className="text-[#13315c] text-xs">
-                  Go to Google Scholar, find a profile, and replace <code className="bg-white px-1 rounded border border-[#8da9c4]">scholar.google.com</code> with <code className="bg-[#134074] text-white px-1 rounded">scholar.capital</code>
+                  Try searching with a different spelling or the researcher's full name.
                 </p>
               </div>
-              
+
               <div>
-                <p className="font-medium text-[#0b2545] mb-1">3. Direct Author URL</p>
+                <p className="font-medium text-[#0b2545] mb-1">2. Direct Author URL</p>
                 <p className="text-[#13315c] text-xs">
-                  If you know an author ID: <code className="bg-white px-1 rounded border border-[#8da9c4]">/citations?user=AUTHOR_ID</code>
+                  If you know an OpenAlex author ID: <code className="bg-white px-1 rounded border border-[#8da9c4]">/citations?user=AUTHOR_ID</code>
                 </p>
               </div>
             </div>

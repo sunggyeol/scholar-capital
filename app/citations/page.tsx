@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState, Suspense, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ScholarGraph } from '@/components/graph/ScholarGraph';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { transformAuthorToGraph, addMorePapers, addResearcherToGraph, addResearcherPlaceholders, updateResearcherPapers } from '@/lib/utils/graph-transformer';
+import { transformAuthorToGraph, addMorePapers, addResearcherPlaceholders, updateResearcherPapers } from '@/lib/utils/graph-transformer';
 import { GraphData, GraphNode } from '@/lib/types/graph';
 import { ScholarAuthorResponse } from '@/lib/types/scholar';
 
 function CitationsContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('user');
-  const language = searchParams.get('hl') || 'en';
 
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [authorData, setAuthorData] = useState<ScholarAuthorResponse | null>(null);
@@ -21,12 +20,6 @@ function CitationsContent() {
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, any>>(new Map());
-
-  // Cache for citation details to prevent duplicate API calls - use useRef to persist across renders
-  const citationCache = useRef<Map<string, any>>(new Map());
-
-  // Track pending requests to prevent duplicate fetches for the same citation
-  const pendingRequests = useRef<Map<string, Promise<any>>>(new Map());
 
   // Track pending author profile requests
   const pendingAuthorRequests = useRef<Map<string, Promise<any>>>(new Map());
@@ -41,20 +34,20 @@ function CitationsContent() {
 
   useEffect(() => {
     if (!userId) {
-      setError('Missing user ID in URL. Please provide a valid Google Scholar user ID.');
+      setError('Missing user ID in URL. Please provide a valid OpenAlex author ID.');
       setLoading(false);
       return;
     }
 
     fetchAuthorData();
-  }, [userId, language]);
+  }, [userId]);
 
   const fetchAuthorData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/scholar/author?user=${userId}&hl=${language}&results=20&sortby=pubdate`);
+      const response = await fetch(`/api/scholar/author?user=${userId}&sortby=pubdate`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -69,7 +62,7 @@ function CitationsContent() {
         articles: [...(data.articles || [])].sort((a, b) => {
           const yearA = a.year ? parseInt(String(a.year), 10) : 0;
           const yearB = b.year ? parseInt(String(b.year), 10) : 0;
-          return yearB - yearA; // Descending order (newest first)
+          return yearB - yearA;
         }),
       };
 
@@ -107,68 +100,12 @@ function CitationsContent() {
     }
   };
 
-  // Helper function to update node with citation data
-  const updateNodeWithCitationData = useCallback((node: GraphNode, citationData: any) => {
-    if (!graphData || !citationData.citation) return;
-
-    const citation = citationData.citation;
-
-    // Get full author names
-    if (citation.authors) {
-      const authorsString = citation.authors;
-
-      // Parse comma-separated author names
-      const fullAuthorNames = authorsString.split(',').map((name: string) => name.trim());
-
-      // Create authors list with full names
-      const authorsList = fullAuthorNames.map((name: string) => ({
-        name,
-        id: undefined,
-        link: undefined,
-      }));
-
-      // Get full venue/publication info
-      let fullVenue = node.metadata?.venue;
-      if (citation.conference) {
-        fullVenue = citation.conference;
-      } else if (citation.journal) {
-        fullVenue = citation.journal;
-      } else if (citation.book) {
-        fullVenue = citation.book;
-      } else if (citation.publisher) {
-        fullVenue = citation.publisher;
-      } else {
-        // Default to Unknown if no venue information found
-        fullVenue = 'Unknown';
-      }
-
-      // Find the actual node object in graphData and update it in place
-      const actualNode = graphData.nodes.find(n => n.id === node.id);
-      if (actualNode && actualNode.metadata) {
-        // Mutate the node's metadata directly
-        actualNode.metadata.authors = authorsList;
-        if (fullVenue) {
-          actualNode.metadata.venue = fullVenue;
-        }
-
-        // Trigger a re-render by creating a new graphData reference
-        // but keep the same node objects (so graph doesn't reset)
-        setGraphData({
-          nodes: [...graphData.nodes],
-          links: graphData.links,
-        });
-      }
-    }
-  }, [graphData]);
-
   // Fetch author profile information
   const fetchAuthorProfile = useCallback(async (authorName: string, authorId?: string) => {
-    // Check if we already have this data
     if (authorProfiles.has(authorName)) {
       return authorProfiles.get(authorName);
     }
 
-    // Check if there's already a pending request
     if (pendingAuthorRequests.current.has(authorName)) {
       try {
         return await pendingAuthorRequests.current.get(authorName);
@@ -178,12 +115,10 @@ function CitationsContent() {
       }
     }
 
-    // Fetch from API
     const fetchPromise = (async () => {
       try {
-        // If we have author ID, use the author endpoint directly
         if (authorId) {
-          const response = await fetch(`/api/scholar/author?user=${authorId}&hl=${language}`);
+          const response = await fetch(`/api/scholar/author?user=${authorId}`);
           if (response.ok) {
             const data = await response.json();
             return {
@@ -194,16 +129,15 @@ function CitationsContent() {
             };
           }
         } else {
-          // Otherwise, search for the author by name
-          const response = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&hl=${language}&results=1`);
+          const response = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&results=1`);
           if (response.ok) {
             const data = await response.json();
-            if (data.profiles && data.profiles.length > 0) {
-              const profile = data.profiles[0];
+            if (data.profiles?.authors && data.profiles.authors.length > 0) {
+              const profile = data.profiles.authors[0];
               return {
                 name: profile.name,
                 affiliations: profile.affiliations,
-                cited_by: profile.cited_by?.total,
+                cited_by: profile.cited_by,
                 author_id: profile.author_id,
               };
             }
@@ -225,11 +159,9 @@ function CitationsContent() {
       setAuthorProfiles(prev => new Map(prev).set(authorName, result));
     }
     return result;
-  }, [authorProfiles, language]);
+  }, [authorProfiles]);
 
   const handleExpandResearcher = useCallback(async (authorName: string, authorId?: string, sourcePaperId?: string) => {
-    console.log('handleExpandResearcher called', { authorName, authorId, sourcePaperId });
-
     if (!graphData) return;
 
     let targetAuthorId = authorId;
@@ -237,17 +169,14 @@ function CitationsContent() {
     try {
       // If no ID, search for the author first
       if (!targetAuthorId) {
-        console.log('No author ID, searching for profile...', authorName);
-        const searchResponse = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&hl=${language}&results=1`);
+        const searchResponse = await fetch(`/api/scholar/profiles?mauthors=${encodeURIComponent(authorName)}&results=1`);
 
         if (searchResponse.ok) {
           const searchData = await searchResponse.json();
-          if (searchData.profiles && searchData.profiles.length > 0) {
-            targetAuthorId = searchData.profiles[0].author_id;
-            console.log('Found author ID:', targetAuthorId);
+          if (searchData.profiles?.authors && searchData.profiles.authors.length > 0) {
+            targetAuthorId = searchData.profiles.authors[0].author_id;
           } else {
             console.warn('No profile found for author:', authorName);
-            // TODO: Show a toast or notification that author was not found
             return;
           }
         } else {
@@ -258,12 +187,12 @@ function CitationsContent() {
 
       if (!targetAuthorId) return;
 
-      // 1. Add placeholders immediately
+      // Add placeholders immediately
       const graphWithPlaceholders = addResearcherPlaceholders(graphData, authorName, sourcePaperId, 20);
       setGraphData(graphWithPlaceholders);
 
-      // 2. Fetch data
-      const response = await fetch(`/api/scholar/author?user=${targetAuthorId}&hl=${language}&results=20&sortby=pubdate`);
+      // Fetch data
+      const response = await fetch(`/api/scholar/author?user=${targetAuthorId}&sortby=pubdate`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch author data for expansion');
@@ -280,84 +209,25 @@ function CitationsContent() {
         });
       }
 
-      // 3. Update placeholders with real data
+      // Update placeholders with real data
       const finalGraph = updateResearcherPapers(graphWithPlaceholders, newAuthorData, authorName);
       setGraphData(finalGraph);
 
     } catch (error) {
       console.error('Error expanding researcher:', error);
     }
-  }, [graphData, language]);
+  }, [graphData]);
 
   const handleNodeClick = useCallback(async (node: GraphNode) => {
     setSelectedNode(node);
 
-    // Handle different node types
-    if (node.type === 'paper') {
-      // Fetch full author names using view_citation endpoint
-      if (node.metadata?.citation_id && userId) {
-        const citationId = node.metadata.citation_id;
+    // With OpenAlex, full author data is already available from the initial fetch
+    // No need for additional API calls on node click
 
-        // Check if we already have this data cached
-        if (citationCache.current.has(citationId)) {
-          const cachedData = citationCache.current.get(citationId);
-          updateNodeWithCitationData(node, cachedData);
-          return;
-        }
-
-        // Check if there's already a pending request for this citation
-        if (pendingRequests.current.has(citationId)) {
-          try {
-            const citationData = await pendingRequests.current.get(citationId);
-            updateNodeWithCitationData(node, citationData);
-          } catch (error) {
-            console.error('Error waiting for pending citation request:', error);
-          }
-          return;
-        }
-
-        // If not cached and not pending, fetch from API
-        const fetchPromise = (async () => {
-          try {
-            const response = await fetch(
-              `/api/scholar/author?user=${userId}&view_op=view_citation&citation_id=${citationId}&hl=${language}`
-            );
-
-            if (response.ok) {
-              const citationData = await response.json();
-
-              // Cache the response
-              citationCache.current.set(citationId, citationData);
-
-              return citationData;
-            } else {
-              console.error('Failed to fetch citation data:', response.status);
-              throw new Error('Failed to fetch citation data');
-            }
-          } catch (error) {
-            console.error('Error fetching full author names:', error);
-            throw error;
-          } finally {
-            // Remove from pending requests
-            pendingRequests.current.delete(citationId);
-          }
-        })();
-
-        // Store the pending request
-        pendingRequests.current.set(citationId, fetchPromise);
-
-        try {
-          const citationData = await fetchPromise;
-          updateNodeWithCitationData(node, citationData);
-        } catch (error) {
-          // Error already logged above
-        }
-      }
-    } else if (node.type === 'coauthor' && node.metadata?.authorId) {
-      // Navigate to co-author's profile
-      window.location.href = `/citations?user=${node.metadata.authorId}&hl=${language}`;
+    if (node.type === 'coauthor' && node.metadata?.authorId) {
+      window.location.href = `/citations?user=${node.metadata.authorId}`;
     }
-  }, [userId, language, updateNodeWithCitationData]);
+  }, []);
 
   if (loading) {
     return <LoadingSpinner message="Loading scholar network..." />;
@@ -470,7 +340,6 @@ function CitationsContent() {
           onAuthorClick={fetchAuthorProfile}
           onExpandResearcher={handleExpandResearcher}
           authorProfiles={authorProfiles}
-          language={language}
         />
       </div>
     </div>
@@ -484,4 +353,3 @@ export default function CitationsPage() {
     </Suspense>
   );
 }
-
