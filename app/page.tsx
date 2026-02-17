@@ -47,6 +47,44 @@ const EDGES: [number, number][] = [
   [8, 15], [10, 16], [13, 17], [3, 18], [2, 19],
 ];
 
+// Mobile-optimized nodes (portrait layout, 400x800 viewBox)
+const MOBILE_NODES = [
+  // Top cluster
+  { cx: 200, cy: 150, r: 6, group: 'a' },
+  { cx: 160, cy: 110, r: 4, group: 'a' },
+  { cx: 250, cy: 120, r: 3.5, group: 'a' },
+  { cx: 150, cy: 180, r: 3, group: 'a' },
+  { cx: 240, cy: 190, r: 3, group: 'a' },
+
+  // Bottom-left cluster
+  { cx: 100, cy: 600, r: 5, group: 'b' },
+  { cx: 60, cy: 560, r: 3, group: 'b' },
+  { cx: 140, cy: 560, r: 3, group: 'b' },
+  { cx: 80, cy: 650, r: 2.5, group: 'b' },
+
+  // Bottom-right cluster
+  { cx: 320, cy: 650, r: 5, group: 'c' },
+  { cx: 280, cy: 610, r: 3, group: 'c' },
+  { cx: 350, cy: 620, r: 2.5, group: 'c' },
+  { cx: 300, cy: 700, r: 3, group: 'c' },
+
+  // Scattered
+  { cx: 50, cy: 350, r: 2.5, group: 'd' },
+  { cx: 350, cy: 300, r: 2.5, group: 'd' },
+  { cx: 320, cy: 750, r: 2, group: 'd' },
+];
+
+const MOBILE_EDGES: [number, number][] = [
+  // Top cluster
+  [0, 1], [0, 2], [0, 3], [0, 4], [1, 3], [2, 4],
+  // Bottom-left
+  [5, 6], [5, 7], [5, 8],
+  // Bottom-right
+  [9, 10], [9, 11], [9, 12],
+  // Cross-connections
+  [3, 13], [4, 14], [8, 5], [12, 15],
+];
+
 const GROUP_COLORS: Record<string, string> = {
   a: '#134074',
   b: '#8da9c4',
@@ -86,10 +124,10 @@ export default function Home() {
         }
       `}</style>
 
-      <div className="min-h-screen bg-[#eef4ed] relative overflow-hidden">
+      <div className="min-h-dvh bg-[#eef4ed] relative overflow-hidden">
         {/* Network graph background */}
         <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full pointer-events-none hidden sm:block"
           viewBox="0 0 1440 900"
           preserveAspectRatio="xMidYMid slice"
         >
@@ -131,27 +169,57 @@ export default function Home() {
           ))}
         </svg>
 
+        {/* Mobile network graph background */}
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none sm:hidden"
+          viewBox="0 0 400 800"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          {/* Mobile edges */}
+          {MOBILE_EDGES.map(([from, to], i) => (
+            <line
+              key={`me-${i}`}
+              x1={MOBILE_NODES[from].cx}
+              y1={MOBILE_NODES[from].cy}
+              x2={MOBILE_NODES[to].cx}
+              y2={MOBILE_NODES[to].cy}
+              stroke="#8da9c4"
+              strokeWidth="0.8"
+              opacity="0.4"
+            />
+          ))}
+          {/* Mobile nodes */}
+          {MOBILE_NODES.map((node, i) => (
+            <g key={`mn-${i}`} className="node-group" style={{ animationDelay: `${i * -0.5}s`, animationDuration: `${5 + (i % 4)}s` }}>
+              {node.r >= 5 && (
+                <circle cx={node.cx} cy={node.cy} r={node.r + 8} fill={GROUP_COLORS[node.group]} opacity="0.04" />
+              )}
+              <circle cx={node.cx} cy={node.cy} r={node.r} fill={GROUP_COLORS[node.group]} opacity={node.r >= 5 ? 0.5 : 0.3} />
+            </g>
+          ))}
+        </svg>
+
         {/* Content overlay */}
-        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
+        <div className="relative z-10 min-h-dvh flex flex-col items-center justify-center px-5 sm:px-4 py-8 sm:py-12">
           <div className="w-full max-w-xl text-center">
             {/* Title */}
-            <p className="text-[11px] tracking-[0.3em] text-[#8da9c4] uppercase mb-3 font-medium">
+            <p className="text-[11px] tracking-[0.3em] text-[#8da9c4] uppercase mb-2 sm:mb-3 font-medium">
               Academic Network Explorer
             </p>
             <h1
-              className="text-4xl md:text-5xl text-[#0b2545] mb-3 leading-tight"
+              className="text-3xl sm:text-4xl md:text-5xl text-[#0b2545] mb-2 sm:mb-3 leading-tight"
               style={{ fontWeight: 400 }}
             >
               Scholar Capital
             </h1>
-            <p className="text-[#13315c] text-[15px] mb-10 max-w-sm mx-auto" style={{ fontWeight: 400 }}>
+            <p className="text-[#13315c] text-sm sm:text-[15px] mb-7 sm:mb-10 max-w-sm mx-auto" style={{ fontWeight: 400 }}>
               Search for any researcher to map their papers, co-authors, and citations as a network.
             </p>
 
             {/* Search */}
             <form onSubmit={handleSearch}>
               <div className="net-search flex items-center bg-white/90 backdrop-blur-sm border border-[#8da9c4] rounded-xl shadow-sm">
-                <div className="pl-4 text-[#8da9c4]">
+                <div className="pl-3 sm:pl-4 text-[#8da9c4]">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                   </svg>
@@ -161,13 +229,12 @@ export default function Home() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by researcher name..."
-                  className="flex-1 bg-transparent text-[#0b2545] placeholder-[#8da9c4] px-3 py-3.5 text-[15px] outline-none"
-                  autoFocus
+                  className="flex-1 min-w-0 bg-transparent text-[#0b2545] placeholder-[#8da9c4] px-2 sm:px-3 py-3 sm:py-3.5 text-sm sm:text-[15px] outline-none"
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="mr-1.5 px-5 py-2 bg-[#134074] hover:bg-[#0b2545] text-white text-[13px] font-medium rounded-lg transition-colors disabled:opacity-50"
+                  className="mr-1.5 px-3 sm:px-5 py-2 bg-[#134074] hover:bg-[#0b2545] text-white text-[13px] font-medium rounded-lg transition-colors disabled:opacity-50 shrink-0"
                 >
                   {loading ? 'Searching' : 'Search'}
                 </button>
@@ -175,8 +242,11 @@ export default function Home() {
             </form>
 
             {/* URL tip */}
-            <p className="text-[#8da9c4] text-[11px] mt-4">
+            <p className="text-[#8da9c4] text-[11px] mt-3 sm:mt-4 hidden sm:block">
               Or replace <code className="bg-[#eef4ed] px-1 rounded text-[10px] text-[#13315c]">scholar.google.com</code> → <code className="bg-[#134074]/5 px-1 rounded text-[10px] text-[#134074]">scholar.capital</code> in any URL
+            </p>
+            <p className="text-[#8da9c4] text-[11px] mt-3 sm:hidden">
+              Or use <code className="bg-[#134074]/5 px-1 rounded text-[10px] text-[#134074]">scholar.capital</code> in place of Google Scholar URLs
             </p>
 
             {/* Error */}
@@ -237,7 +307,7 @@ export default function Home() {
 
             {/* Demo link */}
             {!searchResults && !loading && (
-              <div className="mt-12">
+              <div className="mt-8 sm:mt-12">
                 <button
                   onClick={() => navigateToProfile('Yua2oBoAAAAJ')}
                   className="text-[#134074] text-[13px] font-medium hover:underline transition-colors"
