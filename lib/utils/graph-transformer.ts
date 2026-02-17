@@ -530,6 +530,7 @@ export function addResearcherPlaceholders(
         expanded: false,
         layoutDistance: radialPos.distance,
         initialAngle: radialPos.angle,
+        placeholderIndex: i,
       },
     });
 
@@ -622,6 +623,7 @@ export function updateResearcherPapers(
           expanded: false,
           layoutDistance: placeholderNode.metadata?.layoutDistance,
           initialAngle: placeholderNode.metadata?.initialAngle,
+          placeholderIndex: i,
         },
       };
 

@@ -30,6 +30,7 @@ export interface GraphNode {
     layoutDistance?: number; // For deterministic layout positioning
     initialAngle?: number; // Initial angle for radial positioning
     loading?: boolean; // For async loading state
+    placeholderIndex?: number; // Index of the placeholder this node replaced
   };
 }
 

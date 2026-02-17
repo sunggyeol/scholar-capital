@@ -78,3 +78,43 @@ body {
 .backdrop-fade {
   animation: fade-in 200ms ease-out forwards;
 }
+
+/* Drawer slide-out animations */
+@keyframes slide-out-to-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes slide-out-to-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.drawer-slide-out-bottom {
+  animation: slide-out-to-bottom 300ms ease-in forwards;
+}
+
+.drawer-slide-out-right {
+  animation: slide-out-to-right 300ms ease-in forwards;
+}
+
+.backdrop-fade-out {
+  animation: fade-out 300ms ease-in forwards;
+}

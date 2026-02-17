@@ -20,6 +20,10 @@ function CitationsContent() {
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, any>>(new Map());
+  const [expandingContext, setExpandingContext] = useState<{
+    sourcePaperId?: string;
+    researcherName: string;
+  } | null>(null);
 
   // Track pending author profile requests
   const pendingAuthorRequests = useRef<Map<string, Promise<any>>>(new Map());
@@ -188,6 +192,7 @@ function CitationsContent() {
       if (!targetAuthorId) return;
 
       // Add placeholders immediately
+      setExpandingContext({ sourcePaperId, researcherName: authorName });
       const graphWithPlaceholders = addResearcherPlaceholders(graphData, authorName, sourcePaperId, 20);
       setGraphData(graphWithPlaceholders);
 
@@ -212,6 +217,7 @@ function CitationsContent() {
       // Update placeholders with real data
       const finalGraph = updateResearcherPapers(graphWithPlaceholders, newAuthorData, authorName);
       setGraphData(finalGraph);
+      setExpandingContext(null);
 
     } catch (error) {
       console.error('Error expanding researcher:', error);
@@ -340,6 +346,7 @@ function CitationsContent() {
           onAuthorClick={fetchAuthorProfile}
           onExpandResearcher={handleExpandResearcher}
           authorProfiles={authorProfiles}
+          expandingContext={expandingContext}
         />
       </div>
     </div>
