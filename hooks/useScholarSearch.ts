@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export interface ProfileResult {
@@ -18,12 +18,19 @@ export interface SearchState {
   hasMore: boolean;
 }
 
-export function useScholarSearch() {
+export function useScholarSearch(initialQuery?: string) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [searchResults, setSearchResults] = useState<SearchState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-search if initialQuery is provided
+  useEffect(() => {
+    if (initialQuery) {
+      searchFor(initialQuery);
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

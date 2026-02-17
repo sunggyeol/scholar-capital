@@ -77,6 +77,13 @@ async function makeOpenAlexRequest(endpoint: string, params: OpenAlexParams = {}
 }
 
 /**
+ * Check if a string looks like an OpenAlex author ID (e.g., "A5023888391")
+ */
+export function isOpenAlexAuthorId(id: string): boolean {
+  return /^A\d+$/.test(id);
+}
+
+/**
  * Extract short ID from OpenAlex URL
  * e.g., "https://openalex.org/A5023888391" → "A5023888391"
  */

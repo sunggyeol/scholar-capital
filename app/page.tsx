@@ -1,5 +1,7 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useScholarSearch } from '@/hooks/useScholarSearch';
 
 // Fixed network nodes (deterministic — no hydration issues)
@@ -92,8 +94,10 @@ const GROUP_COLORS: Record<string, string> = {
   d: '#8da9c4',
 };
 
-export default function Home() {
-  const { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile, searchFor } = useScholarSearch();
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get('q') || undefined;
+  const { searchQuery, setSearchQuery, searchResults, loading, error, handleSearch, navigateToProfile, searchFor } = useScholarSearch(initialQuery);
 
   return (
     <>
@@ -325,5 +329,13 @@ export default function Home() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }

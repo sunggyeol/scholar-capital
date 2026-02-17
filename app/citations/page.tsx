@@ -8,6 +8,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { transformAuthorToGraph, addMorePapers, addResearcherPlaceholders, updateResearcherPapers } from '@/lib/utils/graph-transformer';
 import { GraphData, GraphNode } from '@/lib/types/graph';
 import { ScholarAuthorResponse } from '@/lib/types/scholar';
+import { isOpenAlexAuthorId } from '@/lib/openalex';
 
 function CitationsContent() {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ function CitationsContent() {
   const [authorData, setAuthorData] = useState<ScholarAuthorResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
   const [visiblePapers, setVisiblePapers] = useState(20);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, any>>(new Map());
@@ -40,6 +42,26 @@ function CitationsContent() {
     if (!userId) {
       setError('Missing user ID in URL. Please provide a valid OpenAlex author ID.');
       setLoading(false);
+      return;
+    }
+
+    // If not an OpenAlex ID, resolve via Google Scholar bridge
+    if (!isOpenAlexAuthorId(userId)) {
+      setResolving('Resolving Google Scholar profile...');
+      fetch(`/api/scholar/resolve-gs?id=${encodeURIComponent(userId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.matches && data.matches.length > 0) {
+            window.location.replace(`/citations?user=${data.matches[0].author_id}`);
+          } else {
+            // Redirect to homepage with name pre-filled for search
+            const q = data.name ? `?q=${encodeURIComponent(data.name)}` : '';
+            window.location.replace(`/${q}`);
+          }
+        })
+        .catch(() => {
+          window.location.replace('/');
+        });
       return;
     }
 
@@ -234,6 +256,10 @@ function CitationsContent() {
       window.location.href = `/citations?user=${node.metadata.authorId}`;
     }
   }, []);
+
+  if (resolving) {
+    return <LoadingSpinner message={resolving} />;
+  }
 
   if (loading) {
     return <LoadingSpinner message="Loading scholar network..." />;
